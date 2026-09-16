@@ -4,11 +4,22 @@ using Microsoft.AspNetCore.Mvc;
 using System.Collections.Concurrent;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevCorsPolicy", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+app.UseCors("DevCorsPolicy");
 
 // Stockage en mémoire des parties
 var games = new ConcurrentDictionary<Guid, Game>();
-
 var api = app.MapGroup("/api/games");
 
 api.MapPost("/", () =>
