@@ -1,7 +1,24 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>BattleShip</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="home">
+    <div class="home-content">
+        <h1>BattleShip</h1>
 
-Welcome to your new app.
+        <button class="start-button"
+                @onclick="StartGame">
+            Start
+        </button>
+    </div>
+</div>
+
+@code {
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    private void StartGame()
+    {
+        Navigation.NavigateTo("/game");
+    }
+}

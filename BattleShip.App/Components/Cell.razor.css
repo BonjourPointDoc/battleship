@@ -1,0 +1,24 @@
+.cell {
+    width: 40px;
+    height: 40px;
+
+    padding: 0;
+
+    background: #151515;
+
+    border: 1px solid #444;
+
+    cursor: pointer;
+}
+
+.cell:hover {
+    background: #252525;
+}
+
+.cell.ship {
+    background: #777;
+}
+
+.cell.ship:hover {
+    background: #888;
+}

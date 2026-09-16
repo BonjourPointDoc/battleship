@@ -1,0 +1,31 @@
+@namespace BattleShip.App.Components
+@using BattleShip.Models
+
+<button class="cell @(GetCellClass())"
+        @onclick="OnClick">
+</button>
+
+@code {
+
+    [Parameter, EditorRequired]
+    public Position Position { get; set; }
+
+    [Parameter]
+    public bool HasShip { get; set; }
+
+    [Parameter]
+    public bool HideShip { get; set; }
+
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    private string GetCellClass()
+    {
+        if (HasShip && !HideShip)
+        {
+            return "ship";
+        }
+
+        return string.Empty;
+    }
+}
