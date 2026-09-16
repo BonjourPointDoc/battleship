@@ -1,6 +1,44 @@
-@BattleShip.API_HostAddress = http://localhost:5120
+@host = http://localhost:5120
 
-GET {{BattleShip.API_HostAddress}}/weatherforecast/
-Accept: application/json
+### 1. Créer une nouvelle partie
+# @name createGame
+POST {{host}}/api/games
+Content-Type: application/json
 
 ###
+# Récupérer l'id de la partie créée ci-dessus :
+@gameId = {{createGame.response.body.id}}
+
+### 2. Récupérer l'état de la partie
+GET {{host}}/api/games/{{gameId}}
+
+### 3. Placer les 5 bateaux du joueur
+POST {{host}}/api/games/{{gameId}}/board
+Content-Type: application/json
+
+{
+  "ships": [
+    { "type": 4, "position": { "row": 0, "column": 0 }, "direction": 0 },
+    { "type": 3, "position": { "row": 2, "column": 0 }, "direction": 0 },
+    { "type": 2, "position": { "row": 4, "column": 0 }, "direction": 0 },
+    { "type": 2, "position": { "row": 6, "column": 0 }, "direction": 0 },
+    { "type": 1, "position": { "row": 8, "column": 0 }, "direction": 0 }
+  ]
+}
+
+### 4. Effectuer un tir sur l'IA
+POST {{host}}/api/games/{{gameId}}/shots
+Content-Type: application/json
+
+{
+  "target": {
+    "row": 0,
+    "column": 0
+  }
+}
+
+### 5. Supprimer la partie actuelle
+DELETE {{host}}/api/games/{{gameId}}
+
+### 6. Vider toutes les parties (Reset de l'API)
+DELETE {{host}}/api/games

@@ -108,6 +108,19 @@ api.MapPost("/{id:guid}/shots", (Guid id, [FromBody] TakeShotRequest request) =>
     ));
 });
 
+api.MapDelete("/", () =>
+{
+    games.Clear();
+    return Results.Ok(new { Message = "Toutes les parties ont été supprimées." });
+});
+
+api.MapDelete("/{id:guid}", (Guid id) =>
+{
+    return games.TryRemove(id, out _)
+        ? Results.Ok(new { Message = $"La partie {id} a été supprimée." })
+        : Results.NotFound("Partie introuvable.");
+});
+
 app.Run();
 
 #region Helper Functions
