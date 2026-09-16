@@ -3,8 +3,12 @@
 <PageTitle>BattleShip - Game</PageTitle>
 
 <div class="game">
+
     <div class="game-header">
-        <h1>BattleShip</h1>
+        <button class="menu-button"
+                @onclick="ReturnToMenu">
+            Retour au menu
+        </button>
     </div>
 
     <div class="boards">
@@ -15,9 +19,18 @@
                Ships="@EnemyShips"
                HideShips="true" />
     </div>
+
 </div>
 
 @code {
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    private void ReturnToMenu()
+    {
+        Navigation.NavigateTo("/");
+    }
 
     private readonly List<Position> PlayerShips =
     [

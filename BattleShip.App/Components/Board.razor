@@ -4,20 +4,49 @@
 
     <h2>@Title</h2>
 
-    <div class="board">
+    <div class="board-wrapper">
 
-        @for (var row = 0; row < 10; row++)
-        {
+        <!-- Column coordinates -->
+        <div class="column-labels">
+            <div class="corner"></div>
+
             @for (var column = 0; column < 10; column++)
             {
-                var position = new Position(row, column);
-
-                <Cell Position="@position"
-                      HasShip="@HasShip(position)"
-                      HideShip="@HideShips"
-                      OnClick="@(() => OnCellClicked(position))" />
+                <div class="coordinate-label">
+                    @((char)('A' + column))
+                </div>
             }
-        }
+        </div>
+
+        <!-- Rows + board -->
+        <div class="board-content">
+
+            <!-- Row coordinates -->
+            <div class="row-labels">
+                @for (var row = 0; row < 10; row++)
+                {
+                    <div class="coordinate-label">
+                        @(row + 1)
+                    </div>
+                }
+            </div>
+
+            <div class="board">
+                @for (var row = 0; row < 10; row++)
+                {
+                    @for (var column = 0; column < 10; column++)
+                    {
+                        var position = new Position(row, column);
+
+                        <Cell Position="@position"
+                              HasShip="@HasShip(position)"
+                              HideShip="@HideShips"
+                              OnClick="@(() => OnCellClicked(position))" />
+                    }
+                }
+            </div>
+
+        </div>
 
     </div>
 

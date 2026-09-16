@@ -7,7 +7,7 @@
 }
 
 .game-header {
-    text-align: center;
+    text-align: left;
     margin-bottom: 50px;
 }
 
@@ -40,4 +40,17 @@
         align-items: center;
         gap: 50px;
     }
+}
+
+.menu-button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background: transparent;
+    color: white;
+    border: 1px solid white;
+    cursor: pointer;
+}
+
+.menu-button:hover {
+    background-color: #2a2a2a;
 }
