@@ -1,3 +1,5 @@
+namespace BattleShip.Models;
+
 public sealed class Game
 {
     public Guid Id { get; init; }

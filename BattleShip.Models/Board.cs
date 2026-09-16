@@ -1,3 +1,5 @@
+namespace BattleShip.Models;
+
 public sealed class Board
 {
     public IReadOnlyList<Ship> Ships { get; init; } = [];
@@ -31,6 +33,4 @@ public sealed class Board
     bool IsGameOver(){
         return Ships.All(IsSunk);
     }
-
-    
 }
