@@ -1,0 +1,56 @@
+.game {
+    min-height: 100vh;
+    padding: 40px;
+
+    background: #111;
+    color: white;
+}
+
+.game-header {
+    text-align: left;
+    margin-bottom: 50px;
+}
+
+.game-header h1 {
+    margin: 0;
+    font-size: 36px;
+    font-weight: 400;
+}
+
+.boards {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 100px;
+}
+
+@media (max-width: 1100px) {
+    .boards {
+        gap: 40px;
+    }
+}
+
+@media (max-width: 800px) {
+    .game {
+        padding: 20px;
+    }
+
+    .boards {
+        flex-direction: column;
+        align-items: center;
+        gap: 50px;
+    }
+}
+
+.menu-button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background: transparent;
+    color: white;
+    border: 1px solid white;
+    cursor: pointer;
+}
+
+.menu-button:hover {
+    background-color: #2a2a2a;
+}

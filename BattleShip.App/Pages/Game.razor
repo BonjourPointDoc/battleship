@@ -1,0 +1,57 @@
+@page "/game"
+
+<PageTitle>BattleShip - Game</PageTitle>
+
+<div class="game">
+
+    <div class="game-header">
+        <button class="menu-button"
+                @onclick="ReturnToMenu">
+            Retour au menu
+        </button>
+    </div>
+
+    <div class="boards">
+        <Board Title="Votre flotte"
+               Ships="@PlayerShips" />
+
+        <Board Title="Flotte ennemie"
+               Ships="@EnemyShips"
+               HideShips="true" />
+    </div>
+
+</div>
+
+@code {
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    private void ReturnToMenu()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private readonly List<Position> PlayerShips =
+    [
+        // Porte-avions - 5 cases
+        new(2, 1),
+        new(2, 2),
+        new(2, 3),
+        new(2, 4),
+        new(2, 5),
+
+        // Cuirassé - 4 cases
+        new(5, 2),
+        new(5, 3),
+        new(5, 4),
+        new(5, 5),
+
+        // Croiseur - 3 cases
+        new(7, 7),
+        new(8, 7),
+        new(9, 7)
+    ];
+
+    private readonly List<Position> EnemyShips = [];
+}

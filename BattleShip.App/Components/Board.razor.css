@@ -1,0 +1,60 @@
+.board-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.board-container h2 {
+    margin-bottom: 20px;
+    font-size: 20px;
+    font-weight: 400;
+}
+
+/* Everything containing the labels + board */
+.board-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+/* A-J */
+.column-labels {
+    display: grid;
+    grid-template-columns: 30px repeat(10, 40px);
+    height: 25px;
+}
+
+/* Empty corner above the row numbers */
+.corner {
+    width: 30px;
+}
+
+/* A, B, C... */
+.coordinate-label {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    color: #aaa;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Row numbers + board */
+.board-content {
+    display: flex;
+}
+
+/* 1-10 */
+.row-labels {
+    display: grid;
+    grid-template-rows: repeat(10, 40px);
+    width: 30px;
+}
+
+/* The actual 10x10 board */
+.board {
+    display: grid;
+    grid-template-columns: repeat(10, 40px);
+    grid-template-rows: repeat(10, 40px);
+    border: 1px solid #777;
+}
