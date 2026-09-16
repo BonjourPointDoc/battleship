@@ -1,3 +1,5 @@
+namespace BattleShip.Models;
+
 public sealed record Ship(
     ShipType Type,
     Position Position,
