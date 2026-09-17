@@ -1,8 +1,11 @@
 @page "/game"
 
+@using System.Net.Http.Json
 @using BattleShip.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
 
-<PageTitle>BattleShip - Placement</PageTitle>
+<PageTitle>BattleShip - Partie</PageTitle>
 
 <div class="game">
 
@@ -17,91 +20,146 @@
 
     </div>
 
-    <div class="placement-info">
-
-        <h2>Placez vos bateaux</h2>
-
-        <p>
-            Cliquez sur une case pour placer votre bateau.
-        </p>
-
-        <p>
-            <strong>Clic droit</strong> pour changer la direction.
-        </p>
-
-        @if (!PlacementFinished)
+    @if (IsLoading)
+    {
+        <div class="loading">Chargement de la partie...</div>
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="error-message">
+            <p>@ErrorMessage</p>
+            <button @onclick="ReturnToMenu">Retour au menu</button>
+        </div>
+    }
+    else
+    {
+        @if (!GameStarted)
         {
-            <div class="current-ship">
+            <div class="placement-info">
 
-                <span>
-                    Bateau :
-                    <strong>@CurrentShipType</strong>
-                </span>
+                <h2>Placez vos bateaux</h2>
 
-                <span>
-                    Taille :
-                    <strong>@CurrentShipType.Size()</strong>
-                </span>
+                <p>
+                    Cliquez sur une case pour placer votre bateau.
+                </p>
 
-                <span>
-                    Direction :
-                    <strong>@CurrentDirection</strong>
-                </span>
+                <p>
+                    <strong>Clic droit</strong> pour changer la direction.
+                </p>
+
+                @if (!PlacementFinished)
+                {
+                    <div class="current-ship">
+
+                        <span>
+                            Bateau :
+                            <strong>@CurrentShipType</strong>
+                        </span>
+
+                        <span>
+                            Taille :
+                            <strong>@CurrentShipType.Size()</strong>
+                        </span>
+
+                        <span>
+                            Direction :
+                            <strong>@CurrentDirection</strong>
+                        </span>
+
+                    </div>
+                }
+
+            </div>
+        }
+        else
+        {
+            <div class="battle-status">
+                @if (CurrentGame?.Status == 2) @* 2 correspond à Finished *@
+                {
+                    <h2>
+                        @(CurrentGame.WinnerId == CurrentGame.PlayerId ? "Victoire ! Vous avez détruit la flotte adverse !" : "Défaite ! Votre flotte a été détruite.")
+                    </h2>
+                }
+                else
+                {
+                    <h2>
+                        @(IsPlayerTurn ? "À votre tour de tirer !" : "L'IA réfléchit...")
+                    </h2>
+                }
+
+                @if (!string.IsNullOrEmpty(LastTurnMessage))
+                {
+                    <p class="turn-summary">@LastTurnMessage</p>
+                }
+            </div>
+        }
+
+        <div class="boards">
+
+            <Board Title="Votre flotte"
+                   Ships="@PlacedShipPositions"
+                   PreviewShips="@PreviewShipPositions"
+                   PreviewValid="@IsPreviewValid"
+                   Hits="@PlayerHits"
+                   Misses="@PlayerMisses"
+                   Shots="@PlayerShotsReceived"
+                   HideShips="false"
+                   OnCellClicked="OnCellClicked"
+                   OnCellRightClicked="OnCellRightClicked"
+                   OnCellMouseEnter="OnCellMouseEnter"
+                   OnCellMouseLeave="OnCellMouseLeave" />
+
+            @if (GameStarted)
+            {
+                <Board Title="Flotte adverse"
+                       Hits="@AiHits"
+                       Misses="@AiMisses"
+                       Shots="@AiShotsReceived"
+                       HideShips="true"
+                       OnCellClicked="OnAiCellClicked" />
+            }
+
+        </div>
+
+        @if (PlacementFinished && !GameStarted)
+        {
+            <div class="placement-complete">
+
+                <p>Tous les bateaux sont placés.</p>
+
+                <button @onclick="FinishPlacement" disabled="@IsSubmittingPlacement">
+                    @(IsSubmittingPlacement ? "Validation..." : "Commencer la partie")
+                </button>
 
             </div>
         }
 
-    </div>
+        @if (ShowStartingPlayerPopup)
+        {
+            <div class="popup-overlay">
 
-    <div class="boards">
+                <div class="popup">
 
-        <Board Title="Votre flotte"
-               Ships="@PlacedShipPositions"
-               PreviewShips="@PreviewShipPositions"
-               PreviewValid="@IsPreviewValid"
-               HideShips="false"
-               OnCellClicked="OnCellClicked"
-               OnCellRightClicked="OnCellRightClicked"
-               OnCellMouseEnter="OnCellMouseEnter"
-               OnCellMouseLeave="OnCellMouseLeave" />
+                    <h2>La partie commence !</h2>
 
-    </div>
+                    <p>@StartingPlayerMessage</p>
 
-    @if (PlacementFinished && !ShowStartingPlayerPopup)
-    {
-        <div class="placement-complete">
+                    <button @onclick="CloseStartingPlayerPopup">
+                        Continuer
+                    </button>
 
-            <p>Tous les bateaux sont placés.</p>
-
-            <button @onclick="FinishPlacement">
-                Commencer la partie
-            </button>
-
-        </div>
-    }
-
-    @if (ShowStartingPlayerPopup)
-    {
-        <div class="popup-overlay">
-
-            <div class="popup">
-
-                <h2>La partie commence !</h2>
-
-                <p>@StartingPlayerMessage</p>
-
-                <button @onclick="CloseStartingPlayerPopup">
-                    Continuer
-                </button>
+                </div>
 
             </div>
-
-        </div>
+        }
     }
 
 </div>
 
 @code {
+
+    [SupplyParameterFromQuery]
+    public Guid? Id { get; set; }
 
     private static readonly ShipType[] ShipTypes =
     [
@@ -113,36 +171,100 @@
     ];
 
     private readonly List<Ship> PlacedShips = [];
-
     private int CurrentShipIndex;
-
     private Direction CurrentDirection = Direction.Horizontal;
-
     private Position? HoveredPosition;
 
     private bool PlacementFinished;
-
     private bool ShowStartingPlayerPopup;
-
     private string StartingPlayerMessage = string.Empty;
-
     private bool GameStarted;
+    private bool IsLoading = true;
+    private bool IsSubmittingPlacement;
+    private string? ErrorMessage;
+    private string? LastTurnMessage;
 
-    private ShipType CurrentShipType =>
-        ShipTypes[CurrentShipIndex];
+    private GameStateDto? CurrentGame;
+
+    private bool IsPlayerTurn =>
+        CurrentGame != null && CurrentGame.CurrentPlayerId == CurrentGame.PlayerId;
+
+    private ShipType CurrentShipType => ShipTypes[CurrentShipIndex];
 
     private IReadOnlyList<Position> PlacedShipPositions =>
-        PlacedShips
-            .SelectMany(ship => ship.GetPositions())
-            .ToList();
+        PlacedShips.SelectMany(ship => ship.GetPositions()).ToList();
 
     private IReadOnlyList<Position> PreviewShipPositions =>
         HoveredPosition is null || PlacementFinished
             ? []
             : GetPreviewPositions(HoveredPosition.Value).ToList();
 
-    private IEnumerable<Position> GetPreviewPositions(
-        Position startPosition)
+    private IReadOnlyList<Position> PlayerHits =>
+        CurrentGame?.PlayerBoard?.Hits ?? [];
+
+    private IReadOnlyList<Position> PlayerMisses =>
+        CurrentGame?.PlayerBoard?.Misses ?? [];
+
+    private IReadOnlyList<Position> PlayerShotsReceived =>
+        CurrentGame?.PlayerBoard?.Shots ?? [];
+
+    private IReadOnlyList<Position> AiHits =>
+        CurrentGame?.AiBoard?.Hits ?? [];
+
+    private IReadOnlyList<Position> AiMisses =>
+        CurrentGame?.AiBoard?.Misses ?? [];
+
+    private IReadOnlyList<Position> AiShotsReceived =>
+        CurrentGame?.AiBoard?.Shots ?? [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await InitializeGameAsync();
+    }
+
+    private async Task InitializeGameAsync()
+    {
+        IsLoading = true;
+        ErrorMessage = null;
+
+        try
+        {
+            if (!Id.HasValue)
+            {
+                var createResponse = await Http.PostAsync("api/games", null);
+                if (!createResponse.IsSuccessStatusCode)
+                {
+                    ErrorMessage = "Impossible de créer une nouvelle partie.";
+                    return;
+                }
+
+                CurrentGame = await createResponse.Content.ReadFromJsonAsync<GameStateDto>();
+                if (CurrentGame != null)
+                {
+                    Navigation.NavigateTo($"/game?id={CurrentGame.Id}", replace: true);
+                }
+            }
+            else
+            {
+                CurrentGame = await Http.GetFromJsonAsync<GameStateDto>($"api/games/{Id.Value}");
+            }
+
+            if (CurrentGame != null)
+            {
+                SyncGameState();
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Erreur lors de l'initialisation : {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private IEnumerable<Position> GetPreviewPositions(Position startPosition)
     {
         var size = CurrentShipType.Size();
 
@@ -150,16 +272,8 @@
         {
             yield return CurrentDirection switch
             {
-                Direction.Horizontal =>
-                    new Position(
-                        startPosition.Row,
-                        startPosition.Column + i),
-
-                Direction.Vertical =>
-                    new Position(
-                        startPosition.Row + i,
-                        startPosition.Column),
-
+                Direction.Horizontal => new Position(startPosition.Row, startPosition.Column + i),
+                Direction.Vertical => new Position(startPosition.Row + i, startPosition.Column),
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -167,9 +281,7 @@
 
     private void OnCellMouseEnter(Position position)
     {
-        if (PlacementFinished)
-            return;
-
+        if (PlacementFinished) return;
         HoveredPosition = position;
     }
 
@@ -180,8 +292,7 @@
 
     private void OnCellRightClicked(Position position)
     {
-        if (PlacementFinished)
-            return;
+        if (PlacementFinished) return;
 
         CurrentDirection = CurrentDirection == Direction.Horizontal
             ? Direction.Vertical
@@ -192,73 +303,165 @@
 
     private void OnCellClicked(Position position)
     {
-        if (GameStarted)
-        {
-            Shot(position);
-            return;
-        }
-
-        if (PlacementFinished)
-            return;
+        if (PlacementFinished) return;
 
         var positions = GetPreviewPositions(position).ToList();
 
-        if (!IsInsideBoard(positions))
+        if (!IsInsideBoard(positions) || IsOverlapping(positions))
             return;
 
-        if (IsOverlapping(positions))
-            return;
-
-        var ship = new Ship(
-            CurrentShipType,
-            position,
-            CurrentDirection);
-
+        var ship = new Ship(CurrentShipType, position, CurrentDirection);
         PlacedShips.Add(ship);
-
         HoveredPosition = null;
 
         if (CurrentShipIndex < ShipTypes.Length - 1)
         {
             CurrentShipIndex++;
             CurrentDirection = Direction.Horizontal;
-
             return;
         }
 
         PlacementFinished = true;
+    }
 
-        DisplayStartingPlayerPopup(true);
+    private async Task FinishPlacement()
+    {
+        if (CurrentGame == null || IsSubmittingPlacement) return;
+
+        IsSubmittingPlacement = true;
+
+        try
+        {
+            var request = new PlaceShipsRequest
+            {
+                Ships = PlacedShips
+            };
+
+            var response = await Http.PostAsJsonAsync($"api/games/{CurrentGame.Id}/board", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<PlaceShipsResponseDto>();
+
+                if (result?.Game != null)
+                {
+                    CurrentGame = result.Game;
+                    GameStarted = true;
+
+                    bool playerStarts = result.InitialAiShot == null;
+                    DisplayStartingPlayerPopup(playerStarts);
+
+                    if (result.InitialAiShot != null)
+                    {
+                        LastTurnMessage = $"L'IA a tiré en ({result.InitialAiShot.Position.Row}, {result.InitialAiShot.Position.Column}) " +
+                                          $"{(result.InitialAiShot.IsHit ? "et a TOUCHÉ un de vos navires !" : "et a MANQUÉ.")}";
+                    }
+                }
+            }
+            else
+            {
+                ErrorMessage = "Erreur lors de la validation du placement des navires.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Erreur : {ex.Message}";
+        }
+        finally
+        {
+            IsSubmittingPlacement = false;
+        }
+    }
+
+    private async Task OnAiCellClicked(Position position)
+    {
+        if (!GameStarted || CurrentGame == null || CurrentGame.Status != 1) return;
+        if (!IsPlayerTurn) return;
+
+        if (AiShotsReceived.Any(s => s.Row == position.Row && s.Column == position.Column))
+            return;
+
+        try
+        {
+            var request = new TakeShotRequest
+            {
+                Target = position
+            };
+
+            var response = await Http.PostAsJsonAsync($"api/games/{CurrentGame.Id}/shots", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var turnResult = await response.Content.ReadFromJsonAsync<TurnResponseDto>();
+
+                if (turnResult != null)
+                {
+                    CurrentGame.Status = turnResult.GameStatus;
+                    CurrentGame.CurrentPlayerId = turnResult.CurrentPlayerId;
+                    CurrentGame.WinnerId = turnResult.WinnerId;
+
+                    CurrentGame.AiBoard.Shots.Add(turnResult.PlayerShotResult.Position);
+                    if (turnResult.PlayerShotResult.IsHit)
+                        CurrentGame.AiBoard.Hits.Add(turnResult.PlayerShotResult.Position);
+                    else
+                        CurrentGame.AiBoard.Misses.Add(turnResult.PlayerShotResult.Position);
+
+                    string playerMsg = turnResult.PlayerShotResult.IsHit
+                        ? $"Votre tir en ({position.Row}, {position.Column}) a TOUCHÉ !"
+                        : $"Votre tir en ({position.Row}, {position.Column}) a MANQUÉ.";
+
+                    if (turnResult.PlayerShotResult.IsSunk)
+                    {
+                        playerMsg += $" Vous avez coulé un {turnResult.PlayerShotResult.SunkShipType} !";
+                    }
+
+                    string aiMsg = "";
+                    if (turnResult.AiShotResult != null)
+                    {
+                        CurrentGame.PlayerBoard.Shots.Add(turnResult.AiShotResult.Position);
+                        if (turnResult.AiShotResult.IsHit)
+                            CurrentGame.PlayerBoard.Hits.Add(turnResult.AiShotResult.Position);
+                        else
+                            CurrentGame.PlayerBoard.Misses.Add(turnResult.AiShotResult.Position);
+
+                        aiMsg = turnResult.AiShotResult.IsHit
+                            ? $" L'IA a riposté en ({turnResult.AiShotResult.Position.Row}, {turnResult.AiShotResult.Position.Column}) et a TOUCHÉ !"
+                            : $" L'IA a riposté en ({turnResult.AiShotResult.Position.Row}, {turnResult.AiShotResult.Position.Column}) et a MANQUÉ.";
+
+                        if (turnResult.AiShotResult.IsSunk)
+                        {
+                            aiMsg += $" L'IA a coulé votre {turnResult.AiShotResult.SunkShipType} !";
+                        }
+                    }
+
+                    LastTurnMessage = $"{playerMsg}{aiMsg}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors du tir : {ex.Message}");
+        }
     }
 
     private void DisplayStartingPlayerPopup(bool playerStarts)
     {
         StartingPlayerMessage = playerStarts
             ? "C'est vous qui commencez !"
-            : "C'est l'IA qui commence !";
+            : "C'est l'IA qui commence ! Elle a déjà effectué son premier tir.";
 
         ShowStartingPlayerPopup = true;
     }
 
-    private bool IsInsideBoard(
-        IEnumerable<Position> positions)
+    private bool IsInsideBoard(IEnumerable<Position> positions)
     {
-        return positions.All(position =>
-            position.Row >= 0 &&
-            position.Row < 10 &&
-            position.Column >= 0 &&
-            position.Column < 10);
+        return positions.All(p => p.Row >= 0 && p.Row < 10 && p.Column >= 0 && p.Column < 10);
     }
 
-    private bool IsOverlapping(
-        IEnumerable<Position> positions)
+    private bool IsOverlapping(IEnumerable<Position> positions)
     {
-        var occupiedPositions =
-            PlacedShips
-                .SelectMany(ship => ship.GetPositions())
-                .ToHashSet();
-
-        return positions.Any(occupiedPositions.Contains);
+        var occupied = PlacedShips.SelectMany(s => s.GetPositions()).ToHashSet();
+        return positions.Any(occupied.Contains);
     }
 
     private bool IsPreviewValid
@@ -269,42 +472,82 @@
                 return false;
 
             var positions = PreviewShipPositions;
-
-            return IsInsideBoard(positions)
-                && !IsOverlapping(positions);
+            return IsInsideBoard(positions) && !IsOverlapping(positions);
         }
     }
 
-    private void FinishPlacement()
-    {
-        Console.WriteLine("Placement terminé.");
-        GameStarted = true;
+    private void CloseStartingPlayerPopup() => ShowStartingPlayerPopup = false;
 
-        foreach (var ship in PlacedShips)
+    private void ReturnToMenu() => Navigation.NavigateTo("/");
+
+    private void SyncGameState()
+    {
+        if (CurrentGame == null) return;
+
+        if (CurrentGame.Status == 1 || CurrentGame.Status == 2)
         {
-            Console.WriteLine(
-                $"{ship.Type} : " +
-                $"({ship.Position.Row}, {ship.Position.Column}) - " +
-                $"{ship.Direction}");
+            GameStarted = true;
+            PlacementFinished = true;
+
+            if (CurrentGame.PlayerBoard?.Ships != null && CurrentGame.PlayerBoard.Ships.Count > 0)
+            {
+                PlacedShips.Clear();
+                PlacedShips.AddRange(CurrentGame.PlayerBoard.Ships);
+            }
         }
     }
 
-    private void CloseStartingPlayerPopup()
+    public class GameStateDto
     {
-        ShowStartingPlayerPopup = false;
+        public Guid Id { get; set; }
+        public Guid PlayerId { get; set; }
+        public Guid AiId { get; set; }
+        public Guid CurrentPlayerId { get; set; }
+        public int Status { get; set; }
+        public Guid? WinnerId { get; set; }
+        public BoardDto PlayerBoard { get; set; } = new();
+        public BoardDto AiBoard { get; set; } = new();
+        public DateTimeOffset CreatedAt { get; set; }
     }
 
-    private void ReturnToMenu()
+    public class TurnResponseDto
     {
-        Navigation.NavigateTo("/");
+        public ShotResultDto PlayerShotResult { get; set; } = default!;
+        public ShotResultDto? AiShotResult { get; set; }
+        public int GameStatus { get; set; }
+        public Guid CurrentPlayerId { get; set; }
+        public Guid? WinnerId { get; set; }
     }
 
-    private void Shot(Position position)
+    public class BoardDto
     {
-        Console.WriteLine(
-            $"Shot : ligne {position.Row}, colonne {position.Column}");
+        public List<Position> Shots { get; set; } = [];
+        public List<Position> Hits { get; set; } = [];
+        public List<Position> Misses { get; set; } = [];
+        public List<Ship>? Ships { get; set; }
     }
 
-    [Inject]
-    private NavigationManager Navigation { get; set; } = default!;
+    public class PlaceShipsRequest
+    {
+        public List<Ship> Ships { get; set; } = [];
+    }
+
+    public class PlaceShipsResponseDto
+    {
+        public GameStateDto Game { get; set; } = default!;
+        public ShotResultDto? InitialAiShot { get; set; }
+    }
+
+    public class TakeShotRequest
+    {
+        public Position Target { get; set; }
+    }
+
+    public class ShotResultDto
+    {
+        public Position Position { get; set; }
+        public bool IsHit { get; set; }
+        public bool IsSunk { get; set; }
+        public ShipType? SunkShipType { get; set; }
+    }
 }

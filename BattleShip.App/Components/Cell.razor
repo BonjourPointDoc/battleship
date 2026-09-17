@@ -23,6 +23,15 @@
     public bool HideShip { get; set; }
 
     [Parameter]
+    public bool IsPreviewValid { get; set; }
+
+    [Parameter]
+    public bool IsHit { get; set; }
+
+    [Parameter]
+    public bool IsMiss { get; set; }
+
+    [Parameter]
     public EventCallback OnClick { get; set; }
 
     [Parameter]
@@ -34,12 +43,14 @@
     [Parameter]
     public EventCallback OnMouseLeave { get; set; }
 
-    [Parameter]
-    public bool IsPreviewValid { get; set; }
-
-
     private string GetCellClass()
     {
+        if (IsHit)
+            return "hit";
+
+        if (IsMiss)
+            return "miss";
+
         if (IsPreview)
         {
             return IsPreviewValid
@@ -53,27 +64,11 @@
         return string.Empty;
     }
 
+    private Task HandleClick() => OnClick.InvokeAsync();
 
-    private Task HandleClick()
-    {
-        return OnClick.InvokeAsync();
-    }
+    private Task HandleRightClick() => OnRightClick.InvokeAsync();
 
+    private Task HandleMouseEnter() => OnMouseEnter.InvokeAsync();
 
-    private Task HandleRightClick()
-    {
-        return OnRightClick.InvokeAsync();
-    }
-
-
-    private Task HandleMouseEnter()
-    {
-        return OnMouseEnter.InvokeAsync();
-    }
-
-
-    private Task HandleMouseLeave()
-    {
-        return OnMouseLeave.InvokeAsync();
-    }
+    private Task HandleMouseLeave() => OnMouseLeave.InvokeAsync();
 }

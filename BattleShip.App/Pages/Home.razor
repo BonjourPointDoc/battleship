@@ -1,5 +1,8 @@
 ﻿@page "/"
 @using System.Globalization
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
 
 <PageTitle>BattleShip</PageTitle>
 
@@ -31,15 +34,20 @@
         <h1>BattleShip</h1>
 
         <button class="start-button"
-                @onclick="StartGame">
-            Nouvelle partie
+                @onclick="StartGame"
+                disabled="@IsLoading">
+            @(IsLoading ? "Chargement..." : "Nouvelle partie")
         </button>
 
         <div class="games-section">
 
             <h2>Mes parties</h2>
 
-            @if (Games.Count == 0)
+            @if (IsLoadingGames)
+            {
+                <p class="no-games">Chargement des parties en cours...</p>
+            }
+            else if (Games.Count == 0)
             {
                 <p class="no-games">
                     Aucune partie jouée.
@@ -56,7 +64,7 @@
                             <div class="game-info">
 
                                 <span class="game-date">
-                                    @game.Date.ToString("dd/MM/yyyy HH:mm")
+                                    @game.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
                                 </span>
 
                                 <span class="game-status">
@@ -65,7 +73,7 @@
 
                             </div>
 
-                            @if (!game.IsFinished)
+                           @if (game.Status != 2) @* 2 correspond à Finished *@
                             {
                                 <button class="continue-button"
                                         @onclick="() => ContinueGame(game.Id)">
@@ -88,20 +96,21 @@
 @code {
 
     private const double RadarDuration = 6.0;
-
     private readonly Random Random = new();
-
     private readonly List<RadarTarget> Targets = [];
 
-    protected override void OnInitialized()
+    private List<GameStateDto> Games = [];
+    private bool IsLoading;
+    private bool IsLoadingGames = true;
+
+    protected override async Task OnInitializedAsync()
     {
-        // Les cibles sont générées aléatoirement à chaque chargement de la page.
+        // Génération visuelle des cibles du radar
         for (var i = 0; i < 12; i++)
         {
             var angle = Random.NextDouble() * 360.0;
             var radius = 12.0 + Random.NextDouble() * 36.0;
 
-            // Angle 0 = haut du radar, puis sens horaire.
             var radians = angle * Math.PI / 180.0;
             var x = 50.0 + Math.Sin(radians) * radius;
             var y = 50.0 - Math.Cos(radians) * radius;
@@ -110,30 +119,58 @@
             {
                 X = x,
                 Y = y,
-                // La ligne passe sur cette cible à cet instant du cycle.
                 Delay = -(angle / 360.0 * RadarDuration)
             });
         }
+
+        await LoadGamesAsync();
     }
 
-    [Inject]
-    private NavigationManager Navigation { get; set; } = default!;
-
-    private void StartGame()
+    private async Task LoadGamesAsync()
     {
-        Navigation.NavigateTo("/game");
+        IsLoadingGames = true;
+        try
+        {
+            Games = await Http.GetFromJsonAsync<List<GameStateDto>>("api/games") ?? [];
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors de la récupération des parties : {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingGames = false;
+        }
+    }
+
+    private async Task StartGame()
+    {
+        IsLoading = true;
+        try
+        {
+            var response = await Http.PostAsync("api/games", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var newGame = await response.Content.ReadFromJsonAsync<GameStateDto>();
+                if (newGame != null)
+                {
+                    Navigation.NavigateTo($"/game?id={newGame.Id}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur lors de la création de la partie : {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private void ContinueGame(Guid gameId)
     {
-        Navigation.NavigateTo($"game?id={gameId}");
-    }
-
-    private static string GetStatusText(GameItem game)
-    {
-        return game.IsFinished
-            ? "Terminée"
-            : "En cours";
+        Navigation.NavigateTo($"/game?id={gameId}");
     }
 
     private sealed class RadarTarget
@@ -143,36 +180,27 @@
         public double Delay { get; init; }
     }
 
-    private sealed class GameItem
+    // 1. Mise à jour du DTO
+    public sealed class GameStateDto
     {
-        public Guid Id { get; init; }
-
-        public DateTime Date { get; init; }
-
-        public bool IsFinished { get; init; }
+        public Guid Id { get; set; }
+        public Guid PlayerId { get; set; }
+        public Guid AiId { get; set; }
+        public Guid CurrentPlayerId { get; set; }
+        public int Status { get; set; } // Modification string -> int
+        public Guid? WinnerId { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
     }
 
-    private readonly List<GameItem> Games =
-    [
-        new GameItem
+    // 2. Mise à jour de l'affichage du statut
+    private static string GetStatusText(GameStateDto game)
+    {
+        return game.Status switch
         {
-            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            Date = new DateTime(2026, 9, 16, 18, 30, 0),
-            IsFinished = false
-        },
-
-        new GameItem
-        {
-            Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
-            Date = new DateTime(2026, 9, 15, 20, 15, 0),
-            IsFinished = true
-        },
-
-        new GameItem
-        {
-            Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
-            Date = new DateTime(2026, 9, 14, 14, 45, 0),
-            IsFinished = false
-        }
-    ];
+            2 => "Terminée",
+            1 => "En cours",
+            0 => "Placement des bateaux",
+            _ => "En cours"
+        };
+    }
 }

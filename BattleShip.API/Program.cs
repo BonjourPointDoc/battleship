@@ -22,12 +22,11 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 var app = builder.Build();
 app.UseCors("DevCorsPolicy");
 
-
 // Stockage en mémoire des parties
 var games = new ConcurrentDictionary<Guid, Game>();
-var api = app.MapGroup("/api/games");
+var api = app.MapGroup("/api/games").RequireCors("DevCorsPolicy");
 
-api.MapGet("/", () =>
+api.MapGet("", () =>
 {
     var allGames = games.Values
         .OrderByDescending(g => g.CreatedAt)
@@ -37,7 +36,7 @@ api.MapGet("/", () =>
     return Results.Ok(allGames);
 });
 
-api.MapPost("/", () =>
+api.MapPost("", () =>
 {
     var playerId = Guid.NewGuid();
     var aiId = Guid.NewGuid();
@@ -134,7 +133,7 @@ api.MapPost("/{id:guid}/shots", (Guid id, [FromBody] TakeShotRequest request) =>
     ));
 }).Validate<TakeShotRequest>();
 
-api.MapDelete("/", () =>
+api.MapDelete("", () =>
 {
     games.Clear();
     return Results.Ok(new { Message = "Toutes les parties ont été supprimées." });
