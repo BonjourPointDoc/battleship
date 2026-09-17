@@ -33,4 +33,11 @@ public sealed class Board
         Ships = this.Ships,
         Shots = [.. this.Shots, shot]
     };
+
+    public IReadOnlyList<Position> GetUnsunkHits() =>
+    Ships
+        .Where(ship => !IsSunk(ship))
+        .SelectMany(ship => ship.GetPositions())
+        .Where(IsShot)
+        .ToList();
 }

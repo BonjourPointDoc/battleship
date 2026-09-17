@@ -1,0 +1,93 @@
+syntax = "proto3";
+
+option csharp_namespace = "Battleship.Grpc";
+
+package battleship;
+
+service BattleshipGrpc {
+  rpc GetGames (Empty) returns (ListGamesResponse);
+  rpc CreateGame (Empty) returns (GameStateMessage);
+  rpc GetGame (GetGameRequest) returns (GameStateMessage);
+  rpc PlaceShips (PlaceShipsGrpcRequest) returns (PlaceShipsGrpcResponse);
+  rpc TakeShot (TakeShotGrpcRequest) returns (TurnResponseGrpc);
+  rpc DeleteAllGames (Empty) returns (DeleteResponse);
+  rpc DeleteGame (DeleteGameRequest) returns (DeleteResponse);
+}
+
+message Empty {}
+
+message PositionMessage {
+  int32 row = 1;
+  int32 column = 2;
+}
+
+message ShipMessage {
+  string type = 1;
+  PositionMessage bow_position = 2;
+  string direction = 3;
+}
+
+message BoardMessage {
+  repeated PositionMessage shots = 1;
+  repeated PositionMessage hits = 2;
+  repeated PositionMessage misses = 3;
+  repeated ShipMessage ships = 4;
+}
+
+message GameStateMessage {
+  string id = 1;
+  string player_id = 2;
+  string ai_id = 3;
+  string current_player_id = 4;
+  string status = 5;
+  optional string winner_id = 6;
+  BoardMessage player_board = 7;
+  BoardMessage ai_board = 8;
+  string created_at = 9;
+}
+
+message ListGamesResponse {
+  repeated GameStateMessage games = 1;
+}
+
+message GetGameRequest {
+  string id = 1;
+}
+
+message PlaceShipsGrpcRequest {
+  string game_id = 1;
+  repeated ShipMessage ships = 2;
+}
+
+message ShotResultGrpc {
+  PositionMessage target = 1;
+  bool is_hit = 2;
+  bool is_sunk = 3;
+  optional string sunk_ship_type = 4;
+}
+
+message PlaceShipsGrpcResponse {
+  GameStateMessage game = 1;
+  optional ShotResultGrpc initial_ai_shot = 2;
+}
+
+message TakeShotGrpcRequest {
+  string game_id = 1;
+  PositionMessage target = 2;
+}
+
+message TurnResponseGrpc {
+  ShotResultGrpc player_shot_result = 1;
+  optional ShotResultGrpc ai_shot_result = 2;
+  string status = 3;
+  string current_player_id = 4;
+  optional string winner_id = 5;
+}
+
+message DeleteGameRequest {
+  string id = 1;
+}
+
+message DeleteResponse {
+  string message = 1;
+}

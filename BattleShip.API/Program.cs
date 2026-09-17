@@ -4,8 +4,10 @@ using Battleship.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Concurrent;
+using Battleship.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddGrpc();
 
 builder.Services.AddCors(options =>
 {
@@ -13,16 +15,22 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .WithExposedHeaders("Grpc-Status", "Grpc-Message", "Grpc-Encoding", "Grpc-Accept-Encoding");
     });
 });
 
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
-
 var app = builder.Build();
+
+app.UseRouting();
 app.UseCors("DevCorsPolicy");
 
-// Stockage en mémoire des parties
+app.UseGrpcWeb(new GrpcWebOptions { DefaultEnabled = true });
+
+app.MapGrpcService<BattleshipGrpcService>()
+   .EnableGrpcWeb()
+   .RequireCors("DevCorsPolicy");
+
 var games = new ConcurrentDictionary<Guid, Game>();
 var api = app.MapGroup("/api/games").RequireCors("DevCorsPolicy");
 
@@ -152,13 +160,7 @@ app.Run();
 
 static ShotResultDto ExecuteAiTurn(Game game)
 {
-    Position aiTarget;
-    var random = Random.Shared;
-
-    do
-    {
-        aiTarget = new Position(random.Next(0, 10), random.Next(0, 10));
-    } while (game.PlayerBoard.IsShot(aiTarget));
+    Position aiTarget = SelectAiTarget(game.PlayerBoard);
 
     game.PlayerBoard = game.PlayerBoard.WithShot(aiTarget);
     var aiResult = ProcessShot(game.PlayerBoard, aiTarget);
@@ -169,6 +171,57 @@ static ShotResultDto ExecuteAiTurn(Game game)
     }
 
     return aiResult;
+}
+
+static Position SelectAiTarget(Board board)
+{
+    var potentialTargets = GetAdjacentTargetsToUnsunkHits(board);
+
+    if (potentialTargets.Count > 0)
+    {
+        return potentialTargets[Random.Shared.Next(potentialTargets.Count)];
+    }
+
+    return GetRandomUnshotPosition(board);
+}
+
+static List<Position> GetAdjacentTargetsToUnsunkHits(Board board)
+{
+    var candidates = new List<Position>();
+    var unsunkHits = board.GetUnsunkHits(); 
+
+    int[] dx = { 0, 0, -1, 1 };
+    int[] dy = { -1, 1, 0, 0 };
+
+    foreach (var hit in unsunkHits)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            var neighbor = new Position(hit.Row + dx[i], hit.Column + dy[i]);
+            if (IsValidPosition(neighbor) && !board.IsShot(neighbor) && !candidates.Contains(neighbor))
+            {
+                candidates.Add(neighbor);
+            }
+        }
+    }
+
+    return candidates;
+}
+
+static Position GetRandomUnshotPosition(Board board)
+{
+    Position pos;
+    do
+    {
+        pos = new Position(Random.Shared.Next(0, 10), Random.Shared.Next(0, 10));
+    } while (board.IsShot(pos));
+
+    return pos;
+}
+
+static bool IsValidPosition(Position pos)
+{
+    return pos.Row >= 0 && pos.Row < 10 && pos.Column >= 0 && pos.Column < 10;
 }
 
 static GameStateDto ToDto(Game game)
