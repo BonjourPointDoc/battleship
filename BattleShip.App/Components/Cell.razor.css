@@ -1,11 +1,9 @@
 .cell {
     width: 40px;
     height: 40px;
-
     padding: 0;
 
     background: #151515;
-
     border: 1px solid #444;
 
     cursor: pointer;
@@ -21,4 +19,20 @@
 
 .cell.ship:hover {
     background: #888;
+}
+
+.cell.preview {
+    background: #555;
+}
+
+.cell.preview:hover {
+    background: #666;
+}
+
+.cell.preview-invalid {
+    background: #c0392b;
+}
+
+.cell.preview-invalid:hover {
+    background: #e74c3c;
 }

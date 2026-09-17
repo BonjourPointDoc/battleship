@@ -54,3 +54,45 @@
 .menu-button:hover {
     background-color: #2a2a2a;
 }
+
+.popup-overlay {
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: rgba(0, 0, 0, 0.7);
+
+    z-index: 1000;
+}
+
+.popup {
+    width: 400px;
+    padding: 40px;
+
+    background: #1c1c1c;
+    border: 1px solid #555;
+    border-radius: 8px;
+
+    text-align: center;
+}
+
+.popup h2 {
+    margin-bottom: 20px;
+}
+
+.popup p {
+    margin-bottom: 30px;
+    font-size: 18px;
+}
+
+.popup button {
+    padding: 10px 25px;
+
+    border: none;
+    border-radius: 4px;
+
+    cursor: pointer;
+}

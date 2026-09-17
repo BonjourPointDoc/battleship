@@ -6,8 +6,8 @@
 
     <div class="board-wrapper">
 
-        <!-- Column coordinates -->
         <div class="column-labels">
+
             <div class="corner"></div>
 
             @for (var column = 0; column < 10; column++)
@@ -16,22 +16,24 @@
                     @((char)('A' + column))
                 </div>
             }
+
         </div>
 
-        <!-- Rows + board -->
         <div class="board-content">
 
-            <!-- Row coordinates -->
             <div class="row-labels">
+
                 @for (var row = 0; row < 10; row++)
                 {
                     <div class="coordinate-label">
                         @(row + 1)
                     </div>
                 }
+
             </div>
 
             <div class="board">
+
                 @for (var row = 0; row < 10; row++)
                 {
                     @for (var column = 0; column < 10; column++)
@@ -39,11 +41,17 @@
                         var position = new Position(row, column);
 
                         <Cell Position="@position"
-                              HasShip="@HasShip(position)"
-                              HideShip="@HideShips"
-                              OnClick="@(() => OnCellClicked(position))" />
+                        HasShip="@Ships.Contains(position)"
+                        IsPreview="@PreviewShips.Contains(position)"
+                        IsPreviewValid="@PreviewValid"
+                        HideShip="@HideShips"
+                        OnClick="@(() => OnCellClicked.InvokeAsync(position))"
+                        OnRightClick="@(() => OnCellRightClicked.InvokeAsync(position))"
+                        OnMouseEnter="@(() => OnCellMouseEnter.InvokeAsync(position))"
+                        OnMouseLeave="@(() => OnCellMouseLeave.InvokeAsync())" />
                     }
                 }
+
             </div>
 
         </div>
@@ -61,16 +69,23 @@
     public IReadOnlyList<Position> Ships { get; set; } = [];
 
     [Parameter]
+    public IReadOnlyList<Position> PreviewShips { get; set; } = [];
+
+    [Parameter]
     public bool HideShips { get; set; }
 
-    private bool HasShip(Position position)
-    {
-        return Ships.Contains(position);
-    }
+    [Parameter]
+    public EventCallback<Position> OnCellClicked { get; set; }
 
-    private void OnCellClicked(Position position)
-    {
-        Console.WriteLine(
-            $"Cell clicked: {position.Row}, {position.Column}");
-    }
+    [Parameter]
+    public EventCallback<Position> OnCellRightClicked { get; set; }
+
+    [Parameter]
+    public EventCallback<Position> OnCellMouseEnter { get; set; }
+
+    [Parameter]
+    public EventCallback OnCellMouseLeave { get; set; }
+
+    [Parameter]
+    public bool PreviewValid { get; set; }
 }

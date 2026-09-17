@@ -1,19 +1,121 @@
 ﻿@page "/"
+@using System.Globalization
 
 <PageTitle>BattleShip</PageTitle>
 
 <div class="home">
+    <div class="radar" aria-hidden="true">
+        <div class="radar-grid">
+            <span class="radar-ring ring-1"></span>
+            <span class="radar-ring ring-2"></span>
+            <span class="radar-ring ring-3"></span>
+            <span class="radar-ring ring-4"></span>
+
+            <span class="radar-axis axis-x"></span>
+            <span class="radar-axis axis-y"></span>
+
+            <span class="radar-sweep"></span>
+
+            @foreach (var target in Targets)
+            {
+                <span class="radar-target"
+                      style="@($"--x:{target.X.ToString(CultureInfo.InvariantCulture)}%;--y:{target.Y.ToString(CultureInfo.InvariantCulture)}%;--delay:{target.Delay.ToString(CultureInfo.InvariantCulture)}s")"></span>
+            }
+
+            <span class="radar-center"></span>
+        </div>
+    </div>
+
     <div class="home-content">
+
         <h1>BattleShip</h1>
 
         <button class="start-button"
                 @onclick="StartGame">
-            Start
+            Nouvelle partie
         </button>
+
+        <div class="games-section">
+
+            <h2>Mes parties</h2>
+
+            @if (Games.Count == 0)
+            {
+                <p class="no-games">
+                    Aucune partie jouée.
+                </p>
+            }
+            else
+            {
+                <div class="games-list">
+
+                    @foreach (var game in Games)
+                    {
+                        <div class="game-item">
+
+                            <div class="game-info">
+
+                                <span class="game-date">
+                                    @game.Date.ToString("dd/MM/yyyy HH:mm")
+                                </span>
+
+                                <span class="game-status">
+                                    @GetStatusText(game)
+                                </span>
+
+                            </div>
+
+                            @if (!game.IsFinished)
+                            {
+                                <button class="continue-button"
+                                        @onclick="() => ContinueGame(game.Id)">
+                                    Continuer
+                                </button>
+                            }
+
+                        </div>
+                    }
+
+                </div>
+            }
+
+        </div>
+
     </div>
+
 </div>
 
 @code {
+
+    private const double RadarDuration = 6.0;
+
+    private readonly Random Random = new();
+
+    private readonly List<RadarTarget> Targets = [];
+
+    protected override void OnInitialized()
+    {
+        // Les cibles sont générées aléatoirement à chaque chargement de la page.
+        for (var i = 0; i < 12; i++)
+        {
+            var angle = Random.NextDouble() * 360.0;
+            var radius = 12.0 + Random.NextDouble() * 36.0;
+
+            // Angle 0 = haut du radar, puis sens horaire.
+            var radians = angle * Math.PI / 180.0;
+            var x = 50.0 + Math.Sin(radians) * radius;
+            var y = 50.0 - Math.Cos(radians) * radius;
+
+            Targets.Add(new RadarTarget
+            {
+                X = x,
+                Y = y,
+                // La ligne passe sur cette cible à cet instant du cycle.
+                Delay = -(angle / 360.0 * RadarDuration)
+            });
+        }
+    }
+
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
 
@@ -21,4 +123,56 @@
     {
         Navigation.NavigateTo("/game");
     }
+
+    private void ContinueGame(Guid gameId)
+    {
+        Navigation.NavigateTo($"game?id={gameId}");
+    }
+
+    private static string GetStatusText(GameItem game)
+    {
+        return game.IsFinished
+            ? "Terminée"
+            : "En cours";
+    }
+
+    private sealed class RadarTarget
+    {
+        public double X { get; init; }
+        public double Y { get; init; }
+        public double Delay { get; init; }
+    }
+
+    private sealed class GameItem
+    {
+        public Guid Id { get; init; }
+
+        public DateTime Date { get; init; }
+
+        public bool IsFinished { get; init; }
+    }
+
+    private readonly List<GameItem> Games =
+    [
+        new GameItem
+        {
+            Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Date = new DateTime(2026, 9, 16, 18, 30, 0),
+            IsFinished = false
+        },
+
+        new GameItem
+        {
+            Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            Date = new DateTime(2026, 9, 15, 20, 15, 0),
+            IsFinished = true
+        },
+
+        new GameItem
+        {
+            Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            Date = new DateTime(2026, 9, 14, 14, 45, 0),
+            IsFinished = false
+        }
+    ];
 }
