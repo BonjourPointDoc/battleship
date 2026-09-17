@@ -1,8 +1,11 @@
-@namespace BattleShip.App.Components
 @using BattleShip.Models
 
 <button class="cell @(GetCellClass())"
-        @onclick="OnClick">
+        @onclick="HandleClick"
+        @oncontextmenu="HandleRightClick"
+        @oncontextmenu:preventDefault
+        @onmouseenter="HandleMouseEnter"
+        @onmouseleave="HandleMouseLeave">
 </button>
 
 @code {
@@ -14,18 +17,63 @@
     public bool HasShip { get; set; }
 
     [Parameter]
+    public bool IsPreview { get; set; }
+
+    [Parameter]
     public bool HideShip { get; set; }
 
     [Parameter]
     public EventCallback OnClick { get; set; }
 
+    [Parameter]
+    public EventCallback OnRightClick { get; set; }
+
+    [Parameter]
+    public EventCallback OnMouseEnter { get; set; }
+
+    [Parameter]
+    public EventCallback OnMouseLeave { get; set; }
+
+    [Parameter]
+    public bool IsPreviewValid { get; set; }
+
+
     private string GetCellClass()
     {
-        if (HasShip && !HideShip)
+        if (IsPreview)
         {
-            return "ship";
+            return IsPreviewValid
+                ? "preview"
+                : "preview-invalid";
         }
 
+        if (HasShip && !HideShip)
+            return "ship";
+
         return string.Empty;
+    }
+
+
+    private Task HandleClick()
+    {
+        return OnClick.InvokeAsync();
+    }
+
+
+    private Task HandleRightClick()
+    {
+        return OnRightClick.InvokeAsync();
+    }
+
+
+    private Task HandleMouseEnter()
+    {
+        return OnMouseEnter.InvokeAsync();
+    }
+
+
+    private Task HandleMouseLeave()
+    {
+        return OnMouseLeave.InvokeAsync();
     }
 }

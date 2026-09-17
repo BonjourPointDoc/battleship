@@ -1,57 +1,310 @@
 @page "/game"
 
-<PageTitle>BattleShip - Game</PageTitle>
+@using BattleShip.Models
+
+<PageTitle>BattleShip - Placement</PageTitle>
 
 <div class="game">
 
     <div class="game-header">
+
+        <h1>BattleShip</h1>
+
         <button class="menu-button"
                 @onclick="ReturnToMenu">
             Retour au menu
         </button>
+
+    </div>
+
+    <div class="placement-info">
+
+        <h2>Placez vos bateaux</h2>
+
+        <p>
+            Cliquez sur une case pour placer votre bateau.
+        </p>
+
+        <p>
+            <strong>Clic droit</strong> pour changer la direction.
+        </p>
+
+        @if (!PlacementFinished)
+        {
+            <div class="current-ship">
+
+                <span>
+                    Bateau :
+                    <strong>@CurrentShipType</strong>
+                </span>
+
+                <span>
+                    Taille :
+                    <strong>@CurrentShipType.Size()</strong>
+                </span>
+
+                <span>
+                    Direction :
+                    <strong>@CurrentDirection</strong>
+                </span>
+
+            </div>
+        }
+
     </div>
 
     <div class="boards">
-        <Board Title="Votre flotte"
-               Ships="@PlayerShips" />
 
-        <Board Title="Flotte ennemie"
-               Ships="@EnemyShips"
-               HideShips="true" />
+        <Board Title="Votre flotte"
+               Ships="@PlacedShipPositions"
+               PreviewShips="@PreviewShipPositions"
+               PreviewValid="@IsPreviewValid"
+               HideShips="false"
+               OnCellClicked="OnCellClicked"
+               OnCellRightClicked="OnCellRightClicked"
+               OnCellMouseEnter="OnCellMouseEnter"
+               OnCellMouseLeave="OnCellMouseLeave" />
+
     </div>
+
+    @if (PlacementFinished && !ShowStartingPlayerPopup)
+    {
+        <div class="placement-complete">
+
+            <p>Tous les bateaux sont placés.</p>
+
+            <button @onclick="FinishPlacement">
+                Commencer la partie
+            </button>
+
+        </div>
+    }
+
+    @if (ShowStartingPlayerPopup)
+    {
+        <div class="popup-overlay">
+
+            <div class="popup">
+
+                <h2>La partie commence !</h2>
+
+                <p>@StartingPlayerMessage</p>
+
+                <button @onclick="CloseStartingPlayerPopup">
+                    Continuer
+                </button>
+
+            </div>
+
+        </div>
+    }
 
 </div>
 
 @code {
 
-    [Inject]
-    private NavigationManager Navigation { get; set; } = default!;
+    private static readonly ShipType[] ShipTypes =
+    [
+        ShipType.Carrier,
+        ShipType.Battleship,
+        ShipType.Cruiser,
+        ShipType.Submarine,
+        ShipType.Destroyer
+    ];
+
+    private readonly List<Ship> PlacedShips = [];
+
+    private int CurrentShipIndex;
+
+    private Direction CurrentDirection = Direction.Horizontal;
+
+    private Position? HoveredPosition;
+
+    private bool PlacementFinished;
+
+    private bool ShowStartingPlayerPopup;
+
+    private string StartingPlayerMessage = string.Empty;
+
+    private bool GameStarted;
+
+    private ShipType CurrentShipType =>
+        ShipTypes[CurrentShipIndex];
+
+    private IReadOnlyList<Position> PlacedShipPositions =>
+        PlacedShips
+            .SelectMany(ship => ship.GetPositions())
+            .ToList();
+
+    private IReadOnlyList<Position> PreviewShipPositions =>
+        HoveredPosition is null || PlacementFinished
+            ? []
+            : GetPreviewPositions(HoveredPosition.Value).ToList();
+
+    private IEnumerable<Position> GetPreviewPositions(
+        Position startPosition)
+    {
+        var size = CurrentShipType.Size();
+
+        for (var i = 0; i < size; i++)
+        {
+            yield return CurrentDirection switch
+            {
+                Direction.Horizontal =>
+                    new Position(
+                        startPosition.Row,
+                        startPosition.Column + i),
+
+                Direction.Vertical =>
+                    new Position(
+                        startPosition.Row + i,
+                        startPosition.Column),
+
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
+    }
+
+    private void OnCellMouseEnter(Position position)
+    {
+        if (PlacementFinished)
+            return;
+
+        HoveredPosition = position;
+    }
+
+    private void OnCellMouseLeave()
+    {
+        HoveredPosition = null;
+    }
+
+    private void OnCellRightClicked(Position position)
+    {
+        if (PlacementFinished)
+            return;
+
+        CurrentDirection = CurrentDirection == Direction.Horizontal
+            ? Direction.Vertical
+            : Direction.Horizontal;
+
+        HoveredPosition = position;
+    }
+
+    private void OnCellClicked(Position position)
+    {
+        if (GameStarted)
+        {
+            Shot(position);
+            return;
+        }
+
+        if (PlacementFinished)
+            return;
+
+        var positions = GetPreviewPositions(position).ToList();
+
+        if (!IsInsideBoard(positions))
+            return;
+
+        if (IsOverlapping(positions))
+            return;
+
+        var ship = new Ship(
+            CurrentShipType,
+            position,
+            CurrentDirection);
+
+        PlacedShips.Add(ship);
+
+        HoveredPosition = null;
+
+        if (CurrentShipIndex < ShipTypes.Length - 1)
+        {
+            CurrentShipIndex++;
+            CurrentDirection = Direction.Horizontal;
+
+            return;
+        }
+
+        PlacementFinished = true;
+
+        DisplayStartingPlayerPopup(true);
+    }
+
+    private void DisplayStartingPlayerPopup(bool playerStarts)
+    {
+        StartingPlayerMessage = playerStarts
+            ? "C'est vous qui commencez !"
+            : "C'est l'IA qui commence !";
+
+        ShowStartingPlayerPopup = true;
+    }
+
+    private bool IsInsideBoard(
+        IEnumerable<Position> positions)
+    {
+        return positions.All(position =>
+            position.Row >= 0 &&
+            position.Row < 10 &&
+            position.Column >= 0 &&
+            position.Column < 10);
+    }
+
+    private bool IsOverlapping(
+        IEnumerable<Position> positions)
+    {
+        var occupiedPositions =
+            PlacedShips
+                .SelectMany(ship => ship.GetPositions())
+                .ToHashSet();
+
+        return positions.Any(occupiedPositions.Contains);
+    }
+
+    private bool IsPreviewValid
+    {
+        get
+        {
+            if (PlacementFinished || HoveredPosition is null)
+                return false;
+
+            var positions = PreviewShipPositions;
+
+            return IsInsideBoard(positions)
+                && !IsOverlapping(positions);
+        }
+    }
+
+    private void FinishPlacement()
+    {
+        Console.WriteLine("Placement terminé.");
+        GameStarted = true;
+
+        foreach (var ship in PlacedShips)
+        {
+            Console.WriteLine(
+                $"{ship.Type} : " +
+                $"({ship.Position.Row}, {ship.Position.Column}) - " +
+                $"{ship.Direction}");
+        }
+    }
+
+    private void CloseStartingPlayerPopup()
+    {
+        ShowStartingPlayerPopup = false;
+    }
 
     private void ReturnToMenu()
     {
         Navigation.NavigateTo("/");
     }
 
-    private readonly List<Position> PlayerShips =
-    [
-        // Porte-avions - 5 cases
-        new(2, 1),
-        new(2, 2),
-        new(2, 3),
-        new(2, 4),
-        new(2, 5),
+    private void Shot(Position position)
+    {
+        Console.WriteLine(
+            $"Shot : ligne {position.Row}, colonne {position.Column}");
+    }
 
-        // Cuirassé - 4 cases
-        new(5, 2),
-        new(5, 3),
-        new(5, 4),
-        new(5, 5),
-
-        // Croiseur - 3 cases
-        new(7, 7),
-        new(8, 7),
-        new(9, 7)
-    ];
-
-    private readonly List<Position> EnemyShips = [];
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
 }
