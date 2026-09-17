@@ -1,5 +1,7 @@
 using Battleship.Contracts;
 using BattleShip.Models;
+using Battleship.Validators;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Concurrent;
 
@@ -15,12 +17,25 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
 var app = builder.Build();
 app.UseCors("DevCorsPolicy");
+
 
 // Stockage en mémoire des parties
 var games = new ConcurrentDictionary<Guid, Game>();
 var api = app.MapGroup("/api/games");
+
+api.MapGet("/", () =>
+{
+    var allGames = games.Values
+        .OrderByDescending(g => g.CreatedAt)
+        .Select(ToDto)
+        .ToList();
+
+    return Results.Ok(allGames);
+});
 
 api.MapPost("/", () =>
 {
@@ -72,7 +87,7 @@ api.MapPost("/{id:guid}/board", (Guid id, [FromBody] PlaceShipsRequest request) 
         Game = ToDto(game),
         InitialAiShot = initialAiShot
     });
-});
+}).Validate<PlaceShipsRequest>();
 
 api.MapPost("/{id:guid}/shots", (Guid id, [FromBody] TakeShotRequest request) =>
 {
@@ -117,7 +132,7 @@ api.MapPost("/{id:guid}/shots", (Guid id, [FromBody] TakeShotRequest request) =>
         game.CurrentPlayerId,
         winnerId
     ));
-});
+}).Validate<TakeShotRequest>();
 
 api.MapDelete("/", () =>
 {
@@ -191,9 +206,10 @@ static GameStateDto ToDto(Game game)
         status,
         winnerId,
         new BoardDto(game.PlayerBoard.Shots, playerHits, playerMisses, game.PlayerBoard.Ships),
-        new BoardDto(game.AiBoard.Shots, aiHits, aiMisses, null)
+        new BoardDto(game.AiBoard.Shots, aiHits, aiMisses, null),
+        game.CreatedAt
     );
-}
+}   
 
 static ShotResultDto ProcessShot(Board targetBoard, Position target)
 {

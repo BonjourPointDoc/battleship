@@ -8,5 +8,6 @@ public record GameStateDto(
     GameState Status,
     Guid? WinnerId,
     BoardDto PlayerBoard,
-    BoardDto AiBoard
+    BoardDto AiBoard,
+    DateTimeOffset CreatedAt
 );

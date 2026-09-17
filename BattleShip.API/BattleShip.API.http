@@ -5,6 +5,9 @@
 POST {{host}}/api/games
 Content-Type: application/json
 
+### Récupérer toutes les parties
+GET {{host}}/api/games
+
 ###
 # Récupérer l'id de la partie créée ci-dessus :
 @gameId = {{createGame.response.body.id}}
