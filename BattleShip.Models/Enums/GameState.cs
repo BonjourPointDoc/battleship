@@ -1,3 +1,5 @@
+namespace BattleShip.Models;
+
 public enum GameState
 {
     WaitingForPlayerBoard, // Le joueur doit placer ses bateaux

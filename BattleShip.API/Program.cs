@@ -4,8 +4,10 @@ using Battleship.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Concurrent;
+using Battleship.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddGrpc();
 
 builder.Services.AddCors(options =>
 {
@@ -13,17 +15,22 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .WithExposedHeaders("Grpc-Status", "Grpc-Message", "Grpc-Encoding", "Grpc-Accept-Encoding");
     });
 });
 
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
-
 var app = builder.Build();
+
+app.UseRouting();
 app.UseCors("DevCorsPolicy");
 
+app.UseGrpcWeb(new GrpcWebOptions { DefaultEnabled = true });
 
-// Stockage en mémoire des parties
+app.MapGrpcService<BattleshipGrpcService>()
+   .EnableGrpcWeb()
+   .RequireCors("DevCorsPolicy");
+
 var games = new ConcurrentDictionary<Guid, Game>();
 var api = app.MapGroup("/api/games");
 
