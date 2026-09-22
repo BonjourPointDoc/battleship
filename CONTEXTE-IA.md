@@ -34,7 +34,7 @@ Le projet est centralisé et structuré sur un dépôt Git. Après une phase ini
 - Décisions structurantes et références des ADR :
 - Vérifications réalisées et limites connues :
 - Arbitrages et évolution du périmètre :
-* Algorithme de traque : Implémentation d'une IA semi-aléatoire. Elle effectue des tirs aléatoires jusqu'à toucher un navire, puis cible les cases adjacentes jusqu'à le couler.
-* Gestion de la difficulté : Intégration de niveaux de difficulté sélectionnables lors de la création de la partie, appuyés par une IA probabiliste plus poussée.
-* Refonte visuelle : Amélioration du rendu graphique grâce à l'utilisation de sprites pour représenter les navires.
+    * Algorithme de traque : Implémentation d'une IA semi-aléatoire. Elle effectue des tirs aléatoires jusqu'à toucher un navire, puis cible les cases adjacentes jusqu'à le couler.
+    * Gestion de la difficulté : Intégration de niveaux de difficulté sélectionnables lors de la création de la partie, appuyés par une IA probabiliste plus poussée.
+    * Refonte visuelle : Amélioration du rendu graphique grâce à l'utilisation de sprites pour représenter les navires.
 
