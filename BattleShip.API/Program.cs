@@ -1,14 +1,19 @@
+using System.Collections.Concurrent;
 using Battleship.Contracts;
 using BattleShip.Models;
+using Battleship.Services;
 using Battleship.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Concurrent;
-using Battleship.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddGrpc();
 
+// Injection des services métiers
+builder.Services.AddSingleton<IGameEngineService, GameEngineService>();
+builder.Services.AddSingleton<IBattleshipAiService, BattleshipAiService>();
+builder.Services.AddSingleton<ConcurrentDictionary<Guid, Game>>();
+
+builder.Services.AddGrpc();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DevCorsPolicy", policy =>
@@ -24,27 +29,25 @@ var app = builder.Build();
 
 app.UseRouting();
 app.UseCors("DevCorsPolicy");
-
 app.UseGrpcWeb(new GrpcWebOptions { DefaultEnabled = true });
 
 app.MapGrpcService<BattleshipGrpcService>()
    .EnableGrpcWeb()
    .RequireCors("DevCorsPolicy");
 
-var games = new ConcurrentDictionary<Guid, Game>();
-var api = app.MapGroup("/api/games").RequireCors("DevCorsPolicy");
+var api = app.MapGroup("/api/games");
 
-api.MapGet("", () =>
+api.MapGet("/", (ConcurrentDictionary<Guid, Game> games, IGameEngineService engine) =>
 {
     var allGames = games.Values
         .OrderByDescending(g => g.CreatedAt)
-        .Select(ToDto)
+        .Select(engine.ToDto)
         .ToList();
 
     return Results.Ok(allGames);
 });
 
-api.MapPost("", () =>
+api.MapPost("/", (ConcurrentDictionary<Guid, Game> games, IBattleshipAiService ai, IGameEngineService engine) =>
 {
     var playerId = Guid.NewGuid();
     var aiId = Guid.NewGuid();
@@ -56,24 +59,29 @@ api.MapPost("", () =>
         PlayerId = playerId,
         AiId = aiId,
         CurrentPlayerId = isPlayerFirst ? playerId : aiId,
-        AiBoard = GenerateRandomAiBoard(),
+        AiBoard = ai.GenerateRandomBoard(),
         PlayerBoard = new Board(),
         CreatedAt = DateTimeOffset.UtcNow
     };
 
     games[game.Id] = game;
 
-    return Results.Created($"/api/games/{game.Id}", ToDto(game));
+    return Results.Created($"/api/games/{game.Id}", engine.ToDto(game));
 });
 
-api.MapGet("/{id:guid}", (Guid id) =>
+api.MapGet("/{id:guid}", (Guid id, ConcurrentDictionary<Guid, Game> games, IGameEngineService engine) =>
 {
     return games.TryGetValue(id, out var game)
-        ? Results.Ok(ToDto(game))
+        ? Results.Ok(engine.ToDto(game))
         : Results.NotFound("Partie introuvable.");
 });
 
-api.MapPost("/{id:guid}/board", (Guid id, [FromBody] PlaceShipsRequest request) =>
+api.MapPost("/{id:guid}/board", (
+    Guid id,
+    [FromBody] PlaceShipsRequest request,
+    ConcurrentDictionary<Guid, Game> games,
+    IBattleshipAiService ai,
+    IGameEngineService engine) =>
 {
     if (!games.TryGetValue(id, out var game))
         return Results.NotFound("Partie introuvable.");
@@ -86,22 +94,26 @@ api.MapPost("/{id:guid}/board", (Guid id, [FromBody] PlaceShipsRequest request) 
     ShotResultDto? initialAiShot = null;
     if (game.CurrentPlayerId == game.AiId)
     {
-        initialAiShot = ExecuteAiTurn(game);
+        initialAiShot = ai.ExecuteAiTurn(game);
     }
 
     return Results.Ok(new
     {
-        Game = ToDto(game),
+        Game = engine.ToDto(game),
         InitialAiShot = initialAiShot
     });
 }).Validate<PlaceShipsRequest>();
 
-api.MapPost("/{id:guid}/shots", (Guid id, [FromBody] TakeShotRequest request) =>
+api.MapPost("/{id:guid}/shots", (
+    Guid id,
+    [FromBody] TakeShotRequest request,
+    ConcurrentDictionary<Guid, Game> games,
+    IBattleshipAiService ai,
+    IGameEngineService engine) =>
 {
     if (!games.TryGetValue(id, out var game))
         return Results.NotFound("Partie introuvable.");
 
-    // Utilisation de IsGameOver()
     if (game.PlayerBoard.IsGameOver() || game.AiBoard.IsGameOver())
         return Results.BadRequest("La partie est terminée.");
 
@@ -112,7 +124,7 @@ api.MapPost("/{id:guid}/shots", (Guid id, [FromBody] TakeShotRequest request) =>
         return Results.BadRequest("Cette case a déjà été ciblée.");
 
     game.AiBoard = game.AiBoard.WithShot(request.Target);
-    var playerShotResult = ProcessShot(game.AiBoard, request.Target);
+    var playerShotResult = engine.ProcessShot(game.AiBoard, request.Target);
 
     if (game.AiBoard.IsGameOver())
     {
@@ -126,8 +138,7 @@ api.MapPost("/{id:guid}/shots", (Guid id, [FromBody] TakeShotRequest request) =>
     }
 
     game.CurrentPlayerId = game.AiId;
-
-    var aiShotResult = ExecuteAiTurn(game);
+    var aiShotResult = ai.ExecuteAiTurn(game);
 
     var winnerId = game.PlayerBoard.IsGameOver() ? game.AiId : (Guid?)null;
     var status = winnerId.HasValue ? GameState.Finished : GameState.InProgress;
@@ -141,13 +152,13 @@ api.MapPost("/{id:guid}/shots", (Guid id, [FromBody] TakeShotRequest request) =>
     ));
 }).Validate<TakeShotRequest>();
 
-api.MapDelete("", () =>
+api.MapDelete("/", (ConcurrentDictionary<Guid, Game> games) =>
 {
     games.Clear();
     return Results.Ok(new { Message = "Toutes les parties ont été supprimées." });
 });
 
-api.MapDelete("/{id:guid}", (Guid id) =>
+api.MapDelete("/{id:guid}", (Guid id, ConcurrentDictionary<Guid, Game> games) =>
 {
     return games.TryRemove(id, out _)
         ? Results.Ok(new { Message = $"La partie {id} a été supprimée." })
@@ -156,156 +167,4 @@ api.MapDelete("/{id:guid}", (Guid id) =>
 
 app.Run();
 
-#region Helper Functions
-
-static ShotResultDto ExecuteAiTurn(Game game)
-{
-    Position aiTarget = SelectAiTarget(game.PlayerBoard);
-
-    game.PlayerBoard = game.PlayerBoard.WithShot(aiTarget);
-    var aiResult = ProcessShot(game.PlayerBoard, aiTarget);
-
-    if (!game.PlayerBoard.IsGameOver())
-    {
-        game.CurrentPlayerId = game.PlayerId;
-    }
-
-    return aiResult;
-}
-
-static Position SelectAiTarget(Board board)
-{
-    var potentialTargets = GetAdjacentTargetsToUnsunkHits(board);
-
-    if (potentialTargets.Count > 0)
-    {
-        return potentialTargets[Random.Shared.Next(potentialTargets.Count)];
-    }
-
-    return GetRandomUnshotPosition(board);
-}
-
-static List<Position> GetAdjacentTargetsToUnsunkHits(Board board)
-{
-    var candidates = new List<Position>();
-    var unsunkHits = board.GetUnsunkHits(); 
-
-    int[] dx = { 0, 0, -1, 1 };
-    int[] dy = { -1, 1, 0, 0 };
-
-    foreach (var hit in unsunkHits)
-    {
-        for (int i = 0; i < 4; i++)
-        {
-            var neighbor = new Position(hit.Row + dx[i], hit.Column + dy[i]);
-            if (IsValidPosition(neighbor) && !board.IsShot(neighbor) && !candidates.Contains(neighbor))
-            {
-                candidates.Add(neighbor);
-            }
-        }
-    }
-
-    return candidates;
-}
-
-static Position GetRandomUnshotPosition(Board board)
-{
-    Position pos;
-    do
-    {
-        pos = new Position(Random.Shared.Next(0, 10), Random.Shared.Next(0, 10));
-    } while (board.IsShot(pos));
-
-    return pos;
-}
-
-static bool IsValidPosition(Position pos)
-{
-    return pos.Row >= 0 && pos.Row < 10 && pos.Column >= 0 && pos.Column < 10;
-}
-
-static GameStateDto ToDto(Game game)
-{
-    var playerHits = game.PlayerBoard.Shots.Where(game.PlayerBoard.IsHit).ToList();
-    var playerMisses = game.PlayerBoard.Shots.Where(game.PlayerBoard.IsMiss).ToList();
-
-    var aiHits = game.AiBoard.Shots.Where(game.AiBoard.IsHit).ToList();
-    var aiMisses = game.AiBoard.Shots.Where(game.AiBoard.IsMiss).ToList();
-
-    Guid? winnerId = null;
-    GameState status = GameState.InProgress;
-
-    if (game.PlayerBoard.Ships.Count == 0)
-    {
-        status = GameState.WaitingForPlayerBoard;
-    }
-    else if (game.AiBoard.IsGameOver())
-    {
-        status = GameState.Finished;
-        winnerId = game.PlayerId;
-    }
-    else if (game.PlayerBoard.IsGameOver())
-    {
-        status = GameState.Finished;
-        winnerId = game.AiId;
-    }
-
-    return new GameStateDto(
-        game.Id,
-        game.PlayerId,
-        game.AiId,
-        game.CurrentPlayerId,
-        status,
-        winnerId,
-        new BoardDto(game.PlayerBoard.Shots, playerHits, playerMisses, game.PlayerBoard.Ships),
-        new BoardDto(game.AiBoard.Shots, aiHits, aiMisses, null),
-        game.CreatedAt
-    );
-}   
-
-static ShotResultDto ProcessShot(Board targetBoard, Position target)
-{
-    var isHit = targetBoard.IsHit(target);
-    var hitShip = isHit ? targetBoard.Ships.FirstOrDefault(s => s.GetPositions().Contains(target)) : null;
-    var isSunk = hitShip != null && targetBoard.IsSunk(hitShip);
-
-    return new ShotResultDto(
-        target,
-        isHit,
-        isSunk,
-        isSunk ? hitShip?.Type : null
-    );
-}
-
-static Board GenerateRandomAiBoard()
-{
-    var ships = new List<Ship>();
-    var shipTypes = Enum.GetValues<ShipType>();
-    var random = Random.Shared;
-
-    foreach (var type in shipTypes)
-    {
-        bool placed = false;
-        while (!placed)
-        {
-            var dir = (Direction)random.Next(2);
-            var row = random.Next(0, 10);
-            var col = random.Next(0, 10);
-
-            var candidate = new Ship(type, new Position(row, col), dir);
-            var positions = candidate.GetPositions().ToList();
-
-            if (positions.Any(p => p.Row is < 0 or >= 10 || p.Column is < 0 or >= 10))
-                continue;
-
-            if (ships.SelectMany(s => s.GetPositions()).Any(p => positions.Contains(p)))
-                continue;
-
-            ships.Add(candidate);
-            placed = true;
-        }
-    }
-
-    return new Board { Ships = ships };
-}
-#endregion
+public partial class Program {}
