@@ -22,6 +22,33 @@ L'objectif est la réalisation d'une bataille navale en ligne respectant les rè
 
 Expérience Utilisateur : Direction artistique unifiée et cohérente sur l'ensemble du jeu.
 - Organisation du code et contrats :
+## Organisation du code et contrats
+
+L'application repose sur une architecture découplée en trois projets pour séparer clairement les responsabilités métier, les échanges de données réseau et le point d'entrée HTTP.
+
+```text
+┌─────────────────────────────────────────┐  ┌──────────────────────────────────────────┐  
+│              BattleShip.API             │  │              BattleShip.App              │  
+│   (Routing HTTP, Minimal API, CORS)     │  │                (Page Web)                │ 
+└────────────────────┬────────────────────┘  └────────────────────┬─────────────────────┘  
+                     │                                            │     utilisent
+                     ▼                                            ▼
+┌───────────────────────────────────────────────────────────────────────────────────────┐
+│                                 BattleShip.Models                                     │                        
+└───────────────┬────────────────────────┬──────────────────────────────┬───────────────┘
+                │                        │                              │      contient
+                ▼                        ▼                              ▼
+┌──────────────────────────┐  ┌──────────────────────────┐  ┌──────────────────────────┐ 
+│   Contracts              │  │    Models                │  │    Enums                 │
+│   (DTOs Request/Response)│  │   (Domaine & Règles)     │  │   (Domaine & Règles)     │
+└──────────────────────────┘  └──────────────────────────┘  └──────────────────────────┘
+```
+
+### Contrats (Contrats d'interface)**
+Définissent la structure exacte des données échangées sur le réseau (DTOs).
+    - **Requêtes :** PlaceShipsRequest, TakeShotRequest.
+    - **Réponses :** GameStateDto, BoardDto, ShotResultDto, TurnResponseDto.
+
 - Commandes, ports et environnement :
 | Service | Dossier | Commande | URL / Port |
 | :--- | :--- | :--- | :--- |
@@ -31,8 +58,12 @@ Expérience Utilisateur : Direction artistique unifiée et cohérente sur l'ense
 
 - Conventions et méthode de collaboration :
 Le projet est centralisé et structuré sur un dépôt Git. Après une phase initiale de modélisation réalisée en équipe, nous avons réparti le développement entre le front-end et le back-end. Chaque développeur a pris en charge l'écriture des tests correspondant à son périmètre.
-- Décisions structurantes et références des ADR :
+
+
 - Vérifications réalisées et limites connues :
+Tests unitaires et d'intégration sur l'API et le frontend disponibles dans le projet **BattleShip.Tests** (dotnet test)
+Fichier **BattleShip.API.http** dans **BattleShip.API** qui permet de tester directement les routes.
+
 - Arbitrages et évolution du périmètre :
     * Algorithme de traque : Implémentation d'une IA semi-aléatoire. Elle effectue des tirs aléatoires jusqu'à toucher un navire, puis cible les cases adjacentes jusqu'à le couler.
     * Gestion de la difficulté : Intégration de niveaux de difficulté sélectionnables lors de la création de la partie, appuyés par une IA probabiliste plus poussée.
