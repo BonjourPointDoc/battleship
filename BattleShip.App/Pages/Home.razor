@@ -193,11 +193,19 @@
     }
 
     // 2. Mise à jour de l'affichage du statut
+    // 2. Mise à jour de l'affichage du statut
     private static string GetStatusText(GameStateDto game)
     {
+        if (game.Status == 2)
+        {
+            // Si l'ID du gagnant est celui du joueur, c'est une victoire, sinon c'est l'IA
+            return game.WinnerId == game.PlayerId 
+                ? "Terminée - Vainqueur : Vous (Victoire)" 
+                : "Terminée - Vainqueur : IA (Défaite)";
+        }
+
         return game.Status switch
         {
-            2 => "Terminée",
             1 => "En cours",
             0 => "Placement des bateaux",
             _ => "En cours"

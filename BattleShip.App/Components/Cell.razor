@@ -1,6 +1,7 @@
 @using BattleShip.Models
 
 <button class="cell @(GetCellClass())"
+        disabled="@(IsHit || IsMiss || IsShot || IsSunk)"
         @onclick="HandleClick"
         @oncontextmenu="HandleRightClick"
         @oncontextmenu:preventDefault
@@ -10,53 +11,40 @@
 
 @code {
 
-    [Parameter, EditorRequired]
-    public Position Position { get; set; }
+    [Parameter, EditorRequired] public Position Position { get; set; }
+    [Parameter] public bool HasShip { get; set; }
+    [Parameter] public bool IsPreview { get; set; }
+    [Parameter] public bool HideShip { get; set; }
+    [Parameter] public bool IsPreviewValid { get; set; }
+    
+    [Parameter] public bool IsHit { get; set; }
+    [Parameter] public bool IsMiss { get; set; }
+    [Parameter] public bool IsShot { get; set; }
+    
+    // NOUVEAU : État coulé
+    [Parameter] public bool IsSunk { get; set; }
 
-    [Parameter]
-    public bool HasShip { get; set; }
-
-    [Parameter]
-    public bool IsPreview { get; set; }
-
-    [Parameter]
-    public bool HideShip { get; set; }
-
-    [Parameter]
-    public bool IsPreviewValid { get; set; }
-
-    [Parameter]
-    public bool IsHit { get; set; }
-
-    [Parameter]
-    public bool IsMiss { get; set; }
-
-    [Parameter]
-    public EventCallback OnClick { get; set; }
-
-    [Parameter]
-    public EventCallback OnRightClick { get; set; }
-
-    [Parameter]
-    public EventCallback OnMouseEnter { get; set; }
-
-    [Parameter]
-    public EventCallback OnMouseLeave { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public EventCallback OnRightClick { get; set; }
+    [Parameter] public EventCallback OnMouseEnter { get; set; }
+    [Parameter] public EventCallback OnMouseLeave { get; set; }
 
     private string GetCellClass()
     {
+        if (IsSunk)
+            return "sunk"; // Rouge
+
         if (IsHit)
-            return "hit";
+            return "hit"; // Orange
 
         if (IsMiss)
-            return "miss";
+            return "miss"; // Eau
+
+        if (IsShot)
+            return "shot"; // Déjà ciblé (cas générique de sécurité)
 
         if (IsPreview)
-        {
-            return IsPreviewValid
-                ? "preview"
-                : "preview-invalid";
-        }
+            return IsPreviewValid ? "preview" : "preview-invalid";
 
         if (HasShip && !HideShip)
             return "ship";
@@ -65,10 +53,7 @@
     }
 
     private Task HandleClick() => OnClick.InvokeAsync();
-
     private Task HandleRightClick() => OnRightClick.InvokeAsync();
-
     private Task HandleMouseEnter() => OnMouseEnter.InvokeAsync();
-
     private Task HandleMouseLeave() => OnMouseLeave.InvokeAsync();
 }

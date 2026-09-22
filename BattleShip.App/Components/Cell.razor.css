@@ -1,38 +1,59 @@
 .cell {
-    width: 40px;
-    height: 40px;
-    padding: 0;
+    width: 40px; /*[cite: 8] */
+    height: 40px; /*[cite: 8] */
+    padding: 0; /*[cite: 8] */
 
-    background: #151515;
-    border: 1px solid #444;
-
-    cursor: pointer;
+    background: transparent; /* Remplace #151515[cite: 8] */
+    border: 1px solid rgba(0, 255, 102, 0.22); /* Remplace #444[cite: 8] */
+    
+    cursor: pointer; /*[cite: 8] */
+    transition: background 0.1s ease;
 }
 
 .cell:hover {
-    background: #252525;
+    background: rgba(0, 255, 102, 0.2); /* Remplace #252525[cite: 8] */
 }
 
 .cell.ship {
-    background: #777;
+    background: rgba(0, 255, 102, 0.6); /* Remplace #777[cite: 8] */
+    box-shadow: inset 0 0 10px rgba(0, 255, 102, 0.5);
 }
 
 .cell.ship:hover {
-    background: #888;
+    background: rgba(0, 255, 102, 0.8); /* Remplace #888[cite: 8] */
 }
 
 .cell.preview {
-    background: #555;
+    background: rgba(0, 255, 102, 0.4); /* Remplace #555[cite: 8] */
+    box-shadow: inset 0 0 10px #00ff66;
 }
 
 .cell.preview:hover {
-    background: #666;
+    background: rgba(0, 255, 102, 0.6); /* Remplace #666[cite: 8] */
 }
 
 .cell.preview-invalid {
-    background: #c0392b;
+    background: rgba(255, 50, 50, 0.4); /* Remplace #c0392b[cite: 8] */
+    box-shadow: inset 0 0 10px #ff0000;
 }
 
 .cell.preview-invalid:hover {
-    background: #e74c3c;
+    background: rgba(255, 50, 50, 0.6); /* Remplace #e74c3c[cite: 8] */
+}
+
+/* Touché mais encore en vie */
+.cell.hit {
+    background-color: rgba(255, 150, 0, 0.7) !important; /* Remplace orange !important[cite: 8] */
+    box-shadow: inset 0 0 15px rgba(255, 150, 0, 1);
+}
+
+/* Bateau coulé */
+.cell.sunk {
+    background-color: rgba(255, 0, 0, 0.7) !important; /* Remplace red !important[cite: 8] */
+    box-shadow: inset 0 0 15px rgba(255, 0, 0, 1);
+}
+
+/* Coup dans l'eau */
+.cell.miss {
+    background-color: rgba(255, 255, 255, 0.1) !important; /* Remplace lightblue !important[cite: 8] */
 }

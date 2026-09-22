@@ -1,39 +1,23 @@
 @using BattleShip.Models
 
 <div class="board-container">
-
     <h2>@Title</h2>
-
     <div class="board-wrapper">
-
         <div class="column-labels">
-
             <div class="corner"></div>
-
             @for (var column = 0; column < 10; column++)
             {
-                <div class="coordinate-label">
-                    @((char)('A' + column))
-                </div>
+                <div class="coordinate-label">@((char)('A' + column))</div>
             }
-
         </div>
-
         <div class="board-content">
-
             <div class="row-labels">
-
                 @for (var row = 0; row < 10; row++)
                 {
-                    <div class="coordinate-label">
-                        @(row + 1)
-                    </div>
+                    <div class="coordinate-label">@(row + 1)</div>
                 }
-
             </div>
-
             <div class="board">
-
                 @for (var row = 0; row < 10; row++)
                 {
                     @for (var column = 0; column < 10; column++)
@@ -47,56 +31,35 @@
                               HideShip="@HideShips"
                               IsHit="@Hits.Any(p => p.Row == position.Row && p.Column == position.Column)"
                               IsMiss="@Misses.Any(p => p.Row == position.Row && p.Column == position.Column)"
+                              IsShot="@Shots.Any(p => p.Row == position.Row && p.Column == position.Column)"
+                              IsSunk="@Sunk.Any(p => p.Row == position.Row && p.Column == position.Column)"
                               OnClick="@(() => OnCellClicked.InvokeAsync(position))"
                               OnRightClick="@(() => OnCellRightClicked.InvokeAsync(position))"
                               OnMouseEnter="@(() => OnCellMouseEnter.InvokeAsync(position))"
                               OnMouseLeave="@(() => OnCellMouseLeave.InvokeAsync())" />
                     }
                 }
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
 @code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyList<Position> Ships { get; set; } = [];
+    [Parameter] public IReadOnlyList<Position> PreviewShips { get; set; } = [];
+    [Parameter] public IReadOnlyList<Position> Hits { get; set; } = [];
+    [Parameter] public IReadOnlyList<Position> Misses { get; set; } = [];
+    [Parameter] public IReadOnlyList<Position> Shots { get; set; } = [];
+    
+    // NOUVEAU
+    [Parameter] public IReadOnlyList<Position> Sunk { get; set; } = [];
 
-    [Parameter, EditorRequired]
-    public string Title { get; set; } = string.Empty;
+    [Parameter] public bool HideShips { get; set; }
+    [Parameter] public bool PreviewValid { get; set; }
 
-    [Parameter]
-    public IReadOnlyList<Position> Ships { get; set; } = [];
-
-    [Parameter]
-    public IReadOnlyList<Position> PreviewShips { get; set; } = [];
-
-    [Parameter]
-    public IReadOnlyList<Position> Hits { get; set; } = [];
-
-    [Parameter]
-    public IReadOnlyList<Position> Misses { get; set; } = [];
-
-    [Parameter]
-    public IReadOnlyList<Position> Shots { get; set; } = [];
-
-    [Parameter]
-    public bool HideShips { get; set; }
-
-    [Parameter]
-    public bool PreviewValid { get; set; }
-
-    [Parameter]
-    public EventCallback<Position> OnCellClicked { get; set; }
-
-    [Parameter]
-    public EventCallback<Position> OnCellRightClicked { get; set; }
-
-    [Parameter]
-    public EventCallback<Position> OnCellMouseEnter { get; set; }
-
-    [Parameter]
-    public EventCallback OnCellMouseLeave { get; set; }
+    [Parameter] public EventCallback<Position> OnCellClicked { get; set; }
+    [Parameter] public EventCallback<Position> OnCellRightClicked { get; set; }
+    [Parameter] public EventCallback<Position> OnCellMouseEnter { get; set; }
+    [Parameter] public EventCallback OnCellMouseLeave { get; set; }
 }

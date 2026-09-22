@@ -1,60 +1,65 @@
 .board-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: flex; /*[cite: 7] */
+    flex-direction: column; /*[cite: 7] */
+    align-items: center; /*[cite: 7] */
 }
 
 .board-container h2 {
-    margin-bottom: 20px;
-    font-size: 20px;
-    font-weight: 400;
+    margin-bottom: 20px; /*[cite: 7] */
+    font-size: 20px; /*[cite: 7] */
+    font-weight: 400; /*[cite: 7] */
+    color: #00ff66; 
+    text-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
 }
 
 /* Everything containing the labels + board */
 .board-wrapper {
-    display: flex;
-    flex-direction: column;
+    display: flex; /*[cite: 7] */
+    flex-direction: column; /*[cite: 7] */
 }
 
 /* A-J */
 .column-labels {
-    display: grid;
-    grid-template-columns: 30px repeat(10, 40px);
-    height: 25px;
+    display: grid; /*[cite: 7] */
+    grid-template-columns: 30px repeat(10, 40px); /*[cite: 7] */
+    height: 25px; /*[cite: 7] */
 }
 
 /* Empty corner above the row numbers */
 .corner {
-    width: 30px;
+    width: 30px; /*[cite: 7] */
 }
 
 /* A, B, C... */
 .coordinate-label {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: flex; /*[cite: 7] */
+    justify-content: center; /*[cite: 7] */
+    align-items: center; /*[cite: 7] */
 
-    color: #aaa;
-    font-size: 13px;
-    font-weight: 500;
+    color: rgba(0, 255, 102, 0.7); /* Remplace #aaa[cite: 7] */
+    font-size: 13px; /*[cite: 7] */
+    font-weight: 500; /*[cite: 7] */
 }
 
 /* Row numbers + board */
 .board-content {
-    display: flex;
+    display: flex; /*[cite: 7] */
 }
 
 /* 1-10 */
 .row-labels {
-    display: grid;
-    grid-template-rows: repeat(10, 40px);
-    width: 30px;
+    display: grid; /*[cite: 7] */
+    grid-template-rows: repeat(10, 40px); /*[cite: 7] */
+    width: 30px; /*[cite: 7] */
 }
 
 /* The actual 10x10 board */
 .board {
-    display: grid;
-    grid-template-columns: repeat(10, 40px);
-    grid-template-rows: repeat(10, 40px);
-    border: 1px solid #777;
+    display: grid; /*[cite: 7] */
+    grid-template-columns: repeat(10, 40px); /*[cite: 7] */
+    grid-template-rows: repeat(10, 40px); /*[cite: 7] */
+    
+    background: rgba(0, 20, 10, 0.5); 
+    border: 2px solid rgba(0, 255, 102, 0.5); /* Remplace 1px solid #777[cite: 7] */
+    box-shadow: 0 0 20px rgba(0, 255, 102, 0.15);
 }
