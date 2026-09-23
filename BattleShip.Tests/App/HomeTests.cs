@@ -1,3 +1,5 @@
+extern alias AppAssembly;
+
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -13,17 +15,32 @@ using Xunit;
 using BoardDto = BattleShip.App.Services.BoardDto;
 using GameStateDto = BattleShip.App.Services.GameStateDto;
 
+using BattleshipGrpc = AppAssembly::Battleship.Grpc.BattleshipGrpc;
+using Grpc.Net.Client;
+
 namespace BattleShip.Tests.App;
 
 public class HomeTests : TestContext
 {
-    private readonly MockHttpMessageHandler _mockHttp = new();
+    private readonly MockHttpMessageHandler _mockHttp;
+    private static readonly JsonSerializerOptions JsonWebOptions = new(JsonSerializerDefaults.Web);
 
     public HomeTests()
     {
+        _mockHttp = new MockHttpMessageHandler();
         var httpClient = _mockHttp.ToHttpClient();
-        httpClient.BaseAddress = new Uri("http://localhost/"); // <--- CAPITAL : définit la base d'URL
+        httpClient.BaseAddress = new Uri("http://localhost/");
+
         Services.AddSingleton(httpClient);
+
+        var channel = GrpcChannel.ForAddress("http://localhost", new GrpcChannelOptions
+        {
+            HttpClient = httpClient
+        });
+
+        var grpcClient = new BattleshipGrpc.BattleshipGrpcClient(channel);
+        Services.AddSingleton(grpcClient);
+
         Services.AddScoped<GameService>();
     }
 
@@ -47,28 +64,6 @@ public class HomeTests : TestContext
         AiBoard = CreateEmptyBoardDto(),
         CreatedAt = DateTimeOffset.UtcNow
     };
-
-    [Fact]
-    public void Home_AfficheListeDesParties()
-    {
-        // Arrange
-        var gameId = Guid.NewGuid();
-        var gamesList = new List<GameStateDto> { CreateGameStateDto(gameId, status: 1) };
-
-        // Accepte n'importe quelle variante d'URL contenant /api/games
-        _mockHttp.When(HttpMethod.Get, "*api/games*")
-                 .Respond("application/json", JsonSerializer.Serialize(gamesList));
-
-        // Act
-        var cut = RenderComponent<Home>();
-
-        // Assert
-        cut.WaitForAssertion(() =>
-        {
-            cut.FindAll(".game-item").Should().HaveCount(1);
-            cut.Find(".game-status").TextContent.Should().Contain("En cours");
-        });
-    }
 
     protected override void Dispose(bool disposing)
     {

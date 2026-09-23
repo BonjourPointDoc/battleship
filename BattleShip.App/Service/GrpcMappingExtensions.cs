@@ -25,7 +25,7 @@ public static class GrpcMappingExtensions
     public static ShipMessage ToProto(this Ship ship) => new()
     {
         Type = ship.Type.ToString(),
-        BowPosition = ship.Position.ToProto(), // <-- Remplacer BowPosition par Position ici
+        BowPosition = ship.Position.ToProto(),
         Direction = ship.Direction.ToString()
     };
 

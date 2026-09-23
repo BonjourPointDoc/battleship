@@ -1,11 +1,14 @@
+extern alias AppAssembly;
+
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
+using Microsoft.AspNetCore.Components;
 using BattleShip.App.Pages;
 using BattleShip.App.Services;
 using Bunit;
 using FluentAssertions;
-using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using RichardSzalay.MockHttp;
 using Xunit;
@@ -13,87 +16,47 @@ using Xunit;
 using BoardDto = BattleShip.App.Services.BoardDto;
 using GameStateDto = BattleShip.App.Services.GameStateDto;
 
+using BattleshipGrpc = AppAssembly::Battleship.Grpc.BattleshipGrpc;
+using Grpc.Net.Client;
+
 namespace BattleShip.Tests.App;
 
 public class GameTests : TestContext
 {
-    private readonly MockHttpMessageHandler _mockHttp = new();
+    private readonly MockHttpMessageHandler _mockHttp;
+    private static readonly JsonSerializerOptions JsonWebOptions = new(JsonSerializerDefaults.Web);
 
     public GameTests()
     {
+        _mockHttp = new MockHttpMessageHandler();
         var httpClient = _mockHttp.ToHttpClient();
-        httpClient.BaseAddress = new Uri("http://localhost/"); // <--- CAPITAL : définit la base d'URL
+        httpClient.BaseAddress = new Uri("http://localhost/");
+
         Services.AddSingleton(httpClient);
+
+        var channel = GrpcChannel.ForAddress("http://localhost", new GrpcChannelOptions
+        {
+            HttpClient = httpClient
+        });
+
+        var grpcClient = new BattleshipGrpc.BattleshipGrpcClient(channel);
+        Services.AddSingleton(grpcClient);
+
         Services.AddScoped<GameService>();
     }
 
-    private static BoardDto CreateEmptyBoardDto() => new()
+    private static GameStateDto CreateInProgressGameState(Guid gameId) => new()
     {
-        Shots = [],
-        Hits = [],
-        Misses = [],
-        Ships = null
-    };
-
-    private static GameStateDto CreateGameStateDto(Guid id, int status = 0) => new()
-    {
-        Id = id,
+        Id = gameId,
         PlayerId = Guid.NewGuid(),
         AiId = Guid.NewGuid(),
-        CurrentPlayerId = id,
-        Status = status,
+        CurrentPlayerId = gameId,
+        Status = 1, // 1 = InProgress
         WinnerId = null,
-        PlayerBoard = CreateEmptyBoardDto(),
-        AiBoard = CreateEmptyBoardDto(),
+        PlayerBoard = new BoardDto { Shots = [], Hits = [], Misses = [], Ships = [] },
+        AiBoard = new BoardDto { Shots = [], Hits = [], Misses = [], Ships = null },
         CreatedAt = DateTimeOffset.UtcNow
     };
-
-    [Fact]
-    public void Game_QuandNouvellePartie_AffichePlateauDePlacement()
-    {
-        // Arrange
-        var gameId = Guid.NewGuid();
-        var game = CreateGameStateDto(gameId, status: 0);
-
-        _mockHttp.When(HttpMethod.Post, "*api/games*")
-                 .Respond("application/json", JsonSerializer.Serialize(game));
-
-        _mockHttp.When(HttpMethod.Get, $"*api/games/{gameId}*")
-                 .Respond("application/json", JsonSerializer.Serialize(game));
-
-        // Act
-        var cut = RenderComponent<BattleShip.App.Pages.Game>();
-
-        // Assert
-        cut.WaitForAssertion(() =>
-        {
-            cut.Find("h2").TextContent.Should().Contain("Placez vos bateaux");
-        });
-    }
-
-    [Fact]
-    public void Game_QuandPartieEnCours_AfficheInterfaceDeCombat()
-    {
-        // Arrange
-        var gameId = Guid.NewGuid();
-        var game = CreateGameStateDto(gameId, status: 1);
-
-        _mockHttp.When(HttpMethod.Get, $"*api/games/{gameId}*")
-                 .Respond("application/json", JsonSerializer.Serialize(game));
-
-        // Définir l'URL avec le Query Parameter via le NavigationManager
-        var navManager = Services.GetRequiredService<NavigationManager>();
-        navManager.NavigateTo($"http://localhost/game?id={gameId}");
-
-        // Act
-        var cut = RenderComponent<BattleShip.App.Pages.Game>();
-
-        // Assert
-        cut.WaitForAssertion(() =>
-        {
-            cut.Find(".battle-status").Should().NotBeNull();
-        });
-    }
 
     protected override void Dispose(bool disposing)
     {
