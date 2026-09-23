@@ -7,7 +7,6 @@ namespace Battleship.Services;
 
 public class BattleshipGrpcService : BattleshipGrpc.BattleshipGrpcBase
 {
-    // Partagé en mémoire (idéalement injecté via Singleton)
     private static readonly ConcurrentDictionary<Guid, Game> Games = new();
 
     public override Task<ListGamesResponse> GetGames(Empty request, ServerCallContext context)
@@ -126,14 +125,20 @@ public class BattleshipGrpcService : BattleshipGrpc.BattleshipGrpcBase
         var winnerId = game.PlayerBoard.IsGameOver() ? game.AiId : (Guid?)null;
         var status = winnerId.HasValue ? GameState.Finished : GameState.InProgress;
 
-        return Task.FromResult(new TurnResponseGrpc
+        var response = new TurnResponseGrpc
         {
             PlayerShotResult = playerShotResult,
             AiShotResult = aiShotResult,
             Status = status.ToString(),
-            CurrentPlayerId = game.CurrentPlayerId.ToString(),
-            WinnerId = winnerId?.ToString()
-        });
+            CurrentPlayerId = game.CurrentPlayerId.ToString()
+        };
+
+        if (winnerId.HasValue)
+        {
+            response.WinnerId = winnerId.Value.ToString();
+        }
+
+        return Task.FromResult(response);
     }
 
     public override Task<DeleteResponse> DeleteAllGames(Empty request, ServerCallContext context)
@@ -256,7 +261,7 @@ public class BattleshipGrpcService : BattleshipGrpc.BattleshipGrpcBase
     {
         Type = ship.Type.ToString(),
         Direction = ship.Direction.ToString(),
-        BowPosition = MapPosition(ship.Position) // <-- Changé de ship.BowPosition à ship.Position
+        BowPosition = MapPosition(ship.Position)
     };
 
     private static Ship MapToDomainShip(ShipMessage msg) => new(
