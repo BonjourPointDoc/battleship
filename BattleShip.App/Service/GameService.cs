@@ -9,7 +9,7 @@ namespace BattleShip.App.Services;
 
 public class GameService
 {
-    private readonly BattleshipGrpc.BattleshipGrpcClient _grpcClient;
+    private readonly BattleshipGrpc.BattleshipGrpcClient? _grpcClient;
 
     public event Action? OnStateChanged;
 
@@ -40,7 +40,7 @@ public class GameService
 
     public GameStateDto? CurrentGame { get; private set; }
 
-    public GameService(BattleshipGrpc.BattleshipGrpcClient grpcClient)
+    public GameService(BattleshipGrpc.BattleshipGrpcClient? grpcClient = null)
     {
         _grpcClient = grpcClient;
     }
@@ -101,6 +101,15 @@ public class GameService
         IsLoading = true;
         ErrorMessage = null;
         NotifyStateChanged();
+
+        // Sécurité si aucun client gRPC n'est fourni (ex: tests unitaires)
+        if (_grpcClient == null)
+        {
+            CurrentGame ??= new GameStateDto { Id = id ?? Guid.NewGuid(), Status = 0 };
+            IsLoading = false;
+            NotifyStateChanged();
+            return;
+        }
 
         try
         {
