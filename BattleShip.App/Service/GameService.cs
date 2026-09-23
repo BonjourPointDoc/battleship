@@ -1,11 +1,15 @@
-using System.Net.Http.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Battleship.Grpc;
 using BattleShip.Models;
 
 namespace BattleShip.App.Services;
 
 public class GameService
 {
-    private readonly HttpClient _http;
+    private readonly BattleshipGrpc.BattleshipGrpcClient _grpcClient;
 
     public event Action? OnStateChanged;
 
@@ -36,9 +40,9 @@ public class GameService
 
     public GameStateDto? CurrentGame { get; private set; }
 
-    public GameService(HttpClient http)
+    public GameService(BattleshipGrpc.BattleshipGrpcClient grpcClient)
     {
-        _http = http;
+        _grpcClient = grpcClient;
     }
 
     public bool IsPlayerTurn =>
@@ -102,14 +106,8 @@ public class GameService
         {
             if (!id.HasValue)
             {
-                var createResponse = await _http.PostAsync("api/games", null);
-                if (!createResponse.IsSuccessStatusCode)
-                {
-                    ErrorMessage = "Impossible de créer une nouvelle partie.";
-                    return;
-                }
-
-                CurrentGame = await createResponse.Content.ReadFromJsonAsync<GameStateDto>();
+                var response = await _grpcClient.CreateGameAsync(new Empty());
+                CurrentGame = response.ToModel();
                 if (CurrentGame != null)
                 {
                     onGameCreated(CurrentGame.Id);
@@ -117,7 +115,8 @@ public class GameService
             }
             else
             {
-                CurrentGame = await _http.GetFromJsonAsync<GameStateDto>($"api/games/{id.Value}");
+                var response = await _grpcClient.GetGameAsync(new GetGameRequest { Id = id.Value.ToString() });
+                CurrentGame = response.ToModel();
             }
 
             if (CurrentGame != null)
@@ -189,51 +188,51 @@ public class GameService
 
         try
         {
-            var request = new TakeShotRequest { Target = position };
-            var response = await _http.PostAsJsonAsync($"api/games/{CurrentGame.Id}/shots", request);
-
-            if (response.IsSuccessStatusCode)
+            var request = new TakeShotGrpcRequest
             {
-                var turnResult = await response.Content.ReadFromJsonAsync<TurnResponseDto>();
-                if (turnResult != null)
-                {
-                    CurrentGame.Status = turnResult.GameStatus;
-                    CurrentGame.CurrentPlayerId = turnResult.CurrentPlayerId;
-                    CurrentGame.WinnerId = turnResult.WinnerId;
+                GameId = CurrentGame.Id.ToString(),
+                Target = position.ToProto()
+            };
 
-                    CurrentGame.AiBoard.Shots.Add(turnResult.PlayerShotResult.Position);
-                    if (turnResult.PlayerShotResult.IsHit)
-                        CurrentGame.AiBoard.Hits.Add(turnResult.PlayerShotResult.Position);
-                    else
-                        CurrentGame.AiBoard.Misses.Add(turnResult.PlayerShotResult.Position);
+            var turnResult = await _grpcClient.TakeShotAsync(request);
 
-                    if (turnResult.PlayerShotResult.IsSunk)
-                    {
-                        FindAndRecordAiSunkShip(turnResult.PlayerShotResult.Position);
-                    }
+            CurrentGame.Status = int.TryParse(turnResult.Status, out var s) ? s : (turnResult.Status == "Finished" ? 2 : 1);
+            CurrentGame.CurrentPlayerId = Guid.Parse(turnResult.CurrentPlayerId);
+            CurrentGame.WinnerId = string.IsNullOrEmpty(turnResult.WinnerId) ? null : Guid.Parse(turnResult.WinnerId);
 
-                    string playerMsg = $"[Vous] Tir en ({GetCoordText(position)}) : {(turnResult.PlayerShotResult.IsHit ? "TOUCHÉ !" : "MANQUÉ.")}";
-                    if (turnResult.PlayerShotResult.IsSunk) playerMsg += " (Coulé !)";
+            var playerShot = turnResult.PlayerShotResult.ToModel();
+            CurrentGame.AiBoard.Shots.Add(playerShot.Position);
+            if (playerShot.IsHit)
+                CurrentGame.AiBoard.Hits.Add(playerShot.Position);
+            else
+                CurrentGame.AiBoard.Misses.Add(playerShot.Position);
 
-                    TurnHistory.Add(playerMsg);
-
-                    if (turnResult.AiShotResult != null)
-                    {
-                        CurrentGame.PlayerBoard.Shots.Add(turnResult.AiShotResult.Position);
-                        if (turnResult.AiShotResult.IsHit)
-                            CurrentGame.PlayerBoard.Hits.Add(turnResult.AiShotResult.Position);
-                        else
-                            CurrentGame.PlayerBoard.Misses.Add(turnResult.AiShotResult.Position);
-
-                        string aiMsg = $"[IA] Tir en ({GetCoordText(turnResult.AiShotResult.Position)}) : {(turnResult.AiShotResult.IsHit ? "TOUCHÉ !" : "MANQUÉ.")}";
-                        if (turnResult.AiShotResult.IsSunk) aiMsg += $" (Coulé : {turnResult.AiShotResult.SunkShipType})";
-
-                        TurnHistory.Add(aiMsg);
-                    }
-
-                    NotifyStateChanged();
-                }
+            if (playerShot.IsSunk)
+            {
+                FindAndRecordAiSunkShip(playerShot.Position);
             }
+
+            string playerMsg = $"[Vous] Tir en ({GetCoordText(position)}) : {(playerShot.IsHit ? "TOUCHÉ !" : "MANQUÉ.")}";
+            if (playerShot.IsSunk) playerMsg += " (Coulé !)";
+
+            TurnHistory.Add(playerMsg);
+
+            if (turnResult.AiShotResult != null)
+            {
+                var aiShot = turnResult.AiShotResult.ToModel();
+                CurrentGame.PlayerBoard.Shots.Add(aiShot.Position);
+                if (aiShot.IsHit)
+                    CurrentGame.PlayerBoard.Hits.Add(aiShot.Position);
+                else
+                    CurrentGame.PlayerBoard.Misses.Add(aiShot.Position);
+
+                string aiMsg = $"[IA] Tir en ({GetCoordText(aiShot.Position)}) : {(aiShot.IsHit ? "TOUCHÉ !" : "MANQUÉ.")}";
+                if (aiShot.IsSunk) aiMsg += $" (Coulé : {aiShot.SunkShipType})";
+
+                TurnHistory.Add(aiMsg);
+            }
+
+            NotifyStateChanged();
         }
         catch (Exception ex)
         {
@@ -254,25 +253,25 @@ public class GameService
 
         try
         {
-            var request = new PlaceShipsRequest { Ships = PlacedShips };
-            var response = await _http.PostAsJsonAsync($"api/games/{CurrentGame.Id}/board", request);
-
-            if (response.IsSuccessStatusCode)
+            var request = new PlaceShipsGrpcRequest
             {
-                var result = await response.Content.ReadFromJsonAsync<PlaceShipsResponseDto>();
-                if (result?.Game != null)
+                GameId = CurrentGame.Id.ToString()
+            };
+            request.Ships.AddRange(PlacedShips.Select(s => s.ToProto()));
+
+            var result = await _grpcClient.PlaceShipsAsync(request);
+            if (result?.Game != null)
+            {
+                CurrentGame = result.Game.ToModel();
+                GameStarted = true;
+
+                bool playerStarts = result.InitialAiShot == null;
+                DisplayStartingPlayerPopup(playerStarts);
+
+                if (result.InitialAiShot != null)
                 {
-                    CurrentGame = result.Game;
-                    GameStarted = true;
-
-                    bool playerStarts = result.InitialAiShot == null;
-                    DisplayStartingPlayerPopup(playerStarts);
-
-                    if (result.InitialAiShot != null)
-                    {
-                        var shot = result.InitialAiShot;
-                        TurnHistory.Add($"[IA] Tir en ({GetCoordText(shot.Position)}) : {(shot.IsHit ? "TOUCHÉ !" : "MANQUÉ.")}");
-                    }
+                    var shot = result.InitialAiShot.ToModel();
+                    TurnHistory.Add($"[IA] Tir en ({GetCoordText(shot.Position)}) : {(shot.IsHit ? "TOUCHÉ !" : "MANQUÉ.")}");
                 }
             }
             else
@@ -414,37 +413,12 @@ public class GameStateDto
     public DateTimeOffset CreatedAt { get; set; }
 }
 
-public class TurnResponseDto
-{
-    public ShotResultDto PlayerShotResult { get; set; } = default!;
-    public ShotResultDto? AiShotResult { get; set; }
-    public int GameStatus { get; set; }
-    public Guid CurrentPlayerId { get; set; }
-    public Guid? WinnerId { get; set; }
-}
-
 public class BoardDto
 {
     public List<Position> Shots { get; set; } = [];
     public List<Position> Hits { get; set; } = [];
     public List<Position> Misses { get; set; } = [];
     public List<Ship>? Ships { get; set; }
-}
-
-public class PlaceShipsRequest
-{
-    public List<Ship> Ships { get; set; } = [];
-}
-
-public class PlaceShipsResponseDto
-{
-    public GameStateDto Game { get; set; } = default!;
-    public ShotResultDto? InitialAiShot { get; set; }
-}
-
-public class TakeShotRequest
-{
-    public Position Target { get; set; }
 }
 
 public class ShotResultDto
