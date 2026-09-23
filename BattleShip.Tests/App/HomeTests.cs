@@ -1,73 +1,49 @@
+// 1. Déclarer l'alias tout en haut du fichier
 extern alias AppAssembly;
 
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Text.Json;
-using BattleShip.App.Pages;
-using BattleShip.App.Services;
 using Bunit;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using RichardSzalay.MockHttp;
 using Xunit;
-
-using BoardDto = BattleShip.App.Services.BoardDto;
-using GameStateDto = BattleShip.App.Services.GameStateDto;
-
-using BattleshipGrpc = AppAssembly::Battleship.Grpc.BattleshipGrpc;
+// 2. Ajouter le bon using pour trouver le composant "Home"
+using BattleShip.App.Pages; // (Ajustez ".Pages" selon le dossier où se trouve Home.razor)
 using Grpc.Net.Client;
-
-namespace BattleShip.Tests.App;
+namespace BattleShip.Tests.Pages;
 
 public class HomeTests : TestContext
 {
-    private readonly MockHttpMessageHandler _mockHttp;
-    private static readonly JsonSerializerOptions JsonWebOptions = new(JsonSerializerDefaults.Web);
-
     public HomeTests()
     {
-        _mockHttp = new MockHttpMessageHandler();
-        var httpClient = _mockHttp.ToHttpClient();
-        httpClient.BaseAddress = new Uri("http://localhost/");
+        // 3. Utiliser l'alias AppAssembly pour lever l'ambiguïté sur BattleshipGrpcClient
+        var channel = GrpcChannel.ForAddress("http://localhost");
+        var client = new AppAssembly::Battleship.Grpc.BattleshipGrpc.BattleshipGrpcClient(channel);
 
-        Services.AddSingleton(httpClient);
-
-        var channel = GrpcChannel.ForAddress("http://localhost", new GrpcChannelOptions
-        {
-            HttpClient = httpClient
-        });
-
-        var grpcClient = new BattleshipGrpc.BattleshipGrpcClient(channel);
-        Services.AddSingleton(grpcClient);
-
-        Services.AddScoped<GameService>();
+        Services.AddSingleton(client);
     }
 
-    private static BoardDto CreateEmptyBoardDto() => new()
+    [Fact]
+    public void Home_Should_Display_Loading_Games_Initially()
     {
-        Shots = [],
-        Hits = [],
-        Misses = [],
-        Ships = null
-    };
+        // Act
+        var cut = RenderComponent<Home>(); //[cite: 1]
 
-    private static GameStateDto CreateGameStateDto(Guid id, int status = 0) => new()
-    {
-        Id = id,
-        PlayerId = Guid.NewGuid(),
-        AiId = Guid.NewGuid(),
-        CurrentPlayerId = id,
-        Status = status,
-        WinnerId = null,
-        PlayerBoard = CreateEmptyBoardDto(),
-        AiBoard = CreateEmptyBoardDto(),
-        CreatedAt = DateTimeOffset.UtcNow
-    };
+        // Assert
+        cut.Markup.Should().Contain("Chargement des parties en cours..."); //[cite: 1]
+    }
 
-    protected override void Dispose(bool disposing)
+    [Fact]
+    public void StartButton_Should_Display_Chargement_When_Clicked()
     {
-        _mockHttp.Dispose();
-        base.Dispose(disposing);
+        // Arrange
+        var cut = RenderComponent<Home>(); //[cite: 1]
+        cut.WaitForState(() => !cut.Markup.Contains("Chargement des parties en cours..."));
+
+        var startButton = cut.Find(".start-button"); //[cite: 1]
+
+        // Act
+        startButton.Click();
+
+        // Assert
+        cut.Find(".start-button").TextContent.Should().Be("Chargement..."); //[cite: 1]
     }
 }
