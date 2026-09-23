@@ -244,7 +244,7 @@ BattleShip.Models/ShipExtensions.cs
 
 La vérification peut être reproduite en utilisant différentes positions et directions et en contrôlant les positions retournées par `GetPositions()`.
 
-**Commit :** à renseigner avec le hash du commit contenant ces modèles.
+**Commit :** [commit.](https://gitlab.etu.mines-ales.fr/thomas.humbert/battleship/-/commit/456018eb4fcfba2b275e8618d9065e50abbcd8d1)
 
 ### Après correction éventuelle : résultat avant / après
 
@@ -402,7 +402,7 @@ Le contrôle peut être reproduit depuis `/game` :
 3. Tester une position qui chevauche un bateau existant.
 4. Vérifier que seules les positions valides peuvent être placées.
 
-**Commit :** à renseigner avec le hash réel du commit correspondant.
+**Commit :** [commit.](https://gitlab.etu.mines-ales.fr/thomas.humbert/battleship/-/commit/3979b818109224aab5e208ef9fcf69745a353de3)
 
 ### Après correction éventuelle : résultat avant / après
 
@@ -544,7 +544,7 @@ puis :
 dotnet test
 ```
 
-**Commit :** à renseigner avec le hash réel du commit contenant la correction.
+**Commit :** [commit.](https://gitlab.etu.mines-ales.fr/thomas.humbert/battleship/-/commit/3979b818109224aab5e208ef9fcf69745a353de3)
 
 ### Après correction éventuelle : résultat avant / après
 
