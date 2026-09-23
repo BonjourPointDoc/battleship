@@ -1,7 +1,8 @@
 ﻿@page "/"
 @using System.Globalization
-@using System.Net.Http.Json
-@inject HttpClient Http
+@using Battleship.Grpc
+@using BattleShip.App.Services
+@inject BattleshipGrpc.BattleshipGrpcClient GrpcClient
 @inject NavigationManager Navigation
 
 <PageTitle>BattleShip</PageTitle>
@@ -73,7 +74,7 @@
 
                             </div>
 
-                           @if (game.Status != 2) @* 2 correspond à Finished *@
+                           @if (game.Status != 2)
                             {
                                 <button class="continue-button"
                                         @onclick="() => ContinueGame(game.Id)">
@@ -105,7 +106,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Génération visuelle des cibles du radar
         for (var i = 0; i < 12; i++)
         {
             var angle = Random.NextDouble() * 360.0;
@@ -131,7 +131,8 @@
         IsLoadingGames = true;
         try
         {
-            Games = await Http.GetFromJsonAsync<List<GameStateDto>>("api/games") ?? [];
+            var response = await GrpcClient.GetGamesAsync(new Empty());
+            Games = response.Games.Select(g => g.ToModel()).ToList();
         }
         catch (Exception ex)
         {
@@ -148,15 +149,9 @@
         IsLoading = true;
         try
         {
-            var response = await Http.PostAsync("api/games", null);
-            if (response.IsSuccessStatusCode)
-            {
-                var newGame = await response.Content.ReadFromJsonAsync<GameStateDto>();
-                if (newGame != null)
-                {
-                    Navigation.NavigateTo($"/game?id={newGame.Id}");
-                }
-            }
+            var response = await GrpcClient.CreateGameAsync(new Empty());
+            var newGame = response.ToModel();
+            Navigation.NavigateTo($"/game?id={newGame.Id}");
         }
         catch (Exception ex)
         {
@@ -180,25 +175,10 @@
         public double Delay { get; init; }
     }
 
-    // 1. Mise à jour du DTO
-    public sealed class GameStateDto
-    {
-        public Guid Id { get; set; }
-        public Guid PlayerId { get; set; }
-        public Guid AiId { get; set; }
-        public Guid CurrentPlayerId { get; set; }
-        public int Status { get; set; } // Modification string -> int
-        public Guid? WinnerId { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-    }
-
-    // 2. Mise à jour de l'affichage du statut
-    // 2. Mise à jour de l'affichage du statut
     private static string GetStatusText(GameStateDto game)
     {
         if (game.Status == 2)
         {
-            // Si l'ID du gagnant est celui du joueur, c'est une victoire, sinon c'est l'IA
             return game.WinnerId == game.PlayerId 
                 ? "Terminée - Vainqueur : Vous (Victoire)" 
                 : "Terminée - Vainqueur : IA (Défaite)";
