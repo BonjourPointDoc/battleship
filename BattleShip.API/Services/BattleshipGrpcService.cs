@@ -175,21 +175,6 @@ public class BattleshipGrpcService : BattleshipGrpc.BattleshipGrpcBase
         return aiResult;
     }
 
-    private static ShotResultGrpc ProcessShot(Board targetBoard, Position target)
-    {
-        var isHit = targetBoard.IsHit(target);
-        var hitShip = isHit ? targetBoard.Ships.FirstOrDefault(s => s.GetPositions().Contains(target)) : null;
-        var isSunk = hitShip != null && targetBoard.IsSunk(hitShip);
-
-        return new ShotResultGrpc
-        {
-            Target = new PositionMessage { Row = target.Row, Column = target.Column },
-            IsHit = isHit,
-            IsSunk = isSunk,
-            SunkShipType = isSunk ? hitShip?.Type.ToString() : null
-        };
-    }
-
     private static GameStateMessage MapToGameStateMessage(Game game)
     {
         var playerHits = game.PlayerBoard.Shots.Where(game.PlayerBoard.IsHit).Select(MapPosition);
@@ -222,11 +207,15 @@ public class BattleshipGrpcService : BattleshipGrpc.BattleshipGrpcBase
             AiId = game.AiId.ToString(),
             CurrentPlayerId = game.CurrentPlayerId.ToString(),
             Status = status.ToString(),
-            WinnerId = winnerId?.ToString(),
             CreatedAt = game.CreatedAt.ToString("o"),
             PlayerBoard = new BoardMessage(),
             AiBoard = new BoardMessage()
         };
+
+        if (winnerId.HasValue)
+        {
+            message.WinnerId = winnerId.Value.ToString();
+        }
 
         message.PlayerBoard.Shots.AddRange(game.PlayerBoard.Shots.Select(MapPosition));
         message.PlayerBoard.Hits.AddRange(playerHits);
@@ -238,6 +227,27 @@ public class BattleshipGrpcService : BattleshipGrpc.BattleshipGrpcBase
         message.AiBoard.Misses.AddRange(aiMisses);
 
         return message;
+    }
+
+    private static ShotResultGrpc ProcessShot(Board targetBoard, Position target)
+    {
+        var isHit = targetBoard.IsHit(target);
+        var hitShip = isHit ? targetBoard.Ships.FirstOrDefault(s => s.GetPositions().Contains(target)) : null;
+        var isSunk = hitShip != null && targetBoard.IsSunk(hitShip);
+
+        var result = new ShotResultGrpc
+        {
+            Target = new PositionMessage { Row = target.Row, Column = target.Column },
+            IsHit = isHit,
+            IsSunk = isSunk
+        };
+
+        if (isSunk && hitShip != null)
+        {
+            result.SunkShipType = hitShip.Type.ToString();
+        }
+
+        return result;
     }
 
     private static PositionMessage MapPosition(Position pos) => new() { Row = pos.Row, Column = pos.Column };
