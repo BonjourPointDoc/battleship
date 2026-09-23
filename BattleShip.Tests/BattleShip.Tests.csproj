@@ -27,7 +27,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BattleShip.API\BattleShip.API.csproj" />
     <ProjectReference Include="..\BattleShip.App\BattleShip.App.csproj">
-      <Aliases>global,AppAssembly</Aliases>
+      <Aliases>AppAssembly</Aliases>
     </ProjectReference>
   </ItemGroup>
 

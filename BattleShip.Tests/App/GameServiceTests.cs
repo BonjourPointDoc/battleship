@@ -1,4 +1,6 @@
-using BattleShip.App.Services;
+extern alias AppAssembly;
+
+using AppAssembly::BattleShip.App.Services;
 using BattleShip.Models;
 using FluentAssertions;
 using Xunit;
@@ -11,7 +13,7 @@ public class GameServiceTests
     public void GameService_Should_Initialize_With_Correct_Default_Values()
     {
         // Arrange & Act
-        // On passe null car nous ne testons pas les appels gRPC ici[cite: 3]
+        // On passe null car nous ne testons pas les appels gRPC ici
         var service = new GameService(null); 
 
         // Assert
@@ -31,7 +33,7 @@ public class GameServiceTests
         var position = new Position(2, 3);
 
         // Act
-        service.OnCellRightClicked(position); //[cite: 3]
+        service.OnCellRightClicked(position);
 
         // Assert
         service.CurrentDirection.Should().NotBe(initialDirection);
@@ -47,7 +49,7 @@ public class GameServiceTests
         var position = new Position(5, 5);
 
         // Act
-        service.OnCellMouseEnter(position); //[cite: 3]
+        service.OnCellMouseEnter(position);
 
         // Assert
         service.HoveredPosition.Should().Be(position);
